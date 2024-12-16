@@ -13,19 +13,24 @@ if (!token) {
   throw new Error('WECHATY_PUPPET_PADLOCAL_TOKEN is required. Please set it in your .env file.');
 }
 
-// Create a singleton bot instance
-let botInstance = null;
-
-const createBot = () => {
-  if (!botInstance) {
-    botInstance = new Wechaty({
-      puppet: new PuppetPadlocal({
-        token
-      }),
-      name: botName
-    });
+class BotSingleton {
+  constructor() {
+    if (!BotSingleton.instance) {
+      BotSingleton.instance = new Wechaty({
+        puppet: new PuppetPadlocal({
+          token
+        }),
+        name: botName
+      });
+    }
   }
-  return botInstance;
-};
 
-module.exports = createBot();
+  static getInstance() {
+    if (!BotSingleton.instance) {
+      new BotSingleton();
+    }
+    return BotSingleton.instance;
+  }
+}
+
+module.exports = BotSingleton.getInstance();

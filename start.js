@@ -42,9 +42,8 @@ const bot = require("./bot");
 // Ensure clean start
 async function startBot() {
   try {
-    if (bot.logonoff()) {
-      await bot.logout();
-    }
+    // Remove all existing listeners
+    bot.removeAllListeners();
 
     // Register event handlers
     bot.on("login", login);
@@ -54,12 +53,16 @@ async function startBot() {
     bot.on("room-join", roomJoin);
     bot.on("room-leave", roomLeave);
 
-    await bot.start();
-    console.log("开始登陆微信");
+    // Only start if not already started
+    if (!bot.isLoggedOn) {
+      await bot.start();
+      console.log("开始登陆微信");
+    }
   } catch (e) {
     console.error("启动失败:", e);
     process.exit(1);
   }
 }
 
+// Start the bot
 startBot();
