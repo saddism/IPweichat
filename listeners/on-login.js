@@ -1,6 +1,6 @@
 /**
  * @digest 登录模块
- * @author Hilbert Yi
+ * @digest 登录模块
  * @time 2022-01-10
  */
 const schedule = require("../schedule");
@@ -19,6 +19,11 @@ const path = require("path");
 async function onLogin(user) {
   console.log(`比庆元哥哥差一点点的${user}登录了`);
   console.log(`iPad设备 ${user.name()} 已登录成功`);
+
+  // Force device type sync after login
+  await user.puppet.syncContact();
+
+  // Additional login handlers
   await rolling();
   await rest();
   await backup();

@@ -3,6 +3,7 @@
  */
 const { Wechaty } = require("wechaty");
 const { PuppetPadlocal } = require("wechaty-puppet-padlocal");
+const { LoginPolicy } = require("wechaty-puppet-padlocal/dist/proto/padlocal_pb");
 const config = require("./config");
 
 // Load token from environment through config
@@ -18,7 +19,12 @@ class BotSingleton {
     if (!BotSingleton.instance) {
       BotSingleton.instance = new Wechaty({
         puppet: new PuppetPadlocal({
-          token
+          token,
+          defaultLoginPolicy: LoginPolicy.DEFAULT,
+          deviceInfo: {
+            deviceType: 'iPad',
+            deviceId: `iPad-${Math.random().toString(36).substring(2,10)}`,
+          }
         }),
         name: botName
       });
