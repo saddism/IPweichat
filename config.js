@@ -1,6 +1,7 @@
 module.exports = {
   // Bot Configuration
   BOTNAME: process.env.BOT_NAME || 'Crystal',
+  PUPPET_TOKEN: process.env.WECHATY_PUPPET_PADLOCAL_TOKEN,
 
   // WeChat Room Configuration
   WEBROOM: (process.env.WEBROOM || '').split(',').filter(Boolean),

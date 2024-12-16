@@ -4,6 +4,7 @@
   "description": "基于Node.js和Wechaty的个人微信机器人",
   "main": "app.js",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
     "axios": "^0.25.0",
     "cheerio": "^1.0.0-rc.2",
     "cors": "^2.8.5",
@@ -16,7 +17,8 @@
     "superagent": "^4.1.0",
     "wechaty": "^0.60.10",
     "wechaty-puppet-hostie": "^0.12.257",
-    "wechaty-puppet-padlocal": "^0.4.1"
+    "wechaty-puppet-padlocal": "^0.4.1",
+    "wechaty-puppet-wechat": "^1.18.4"
   },
   "scripts": {
     "test": "node start.js",

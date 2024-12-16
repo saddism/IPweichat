@@ -4,23 +4,24 @@
  * @digest 入口文件
  */
 const { Wechaty } = require("wechaty");
-const {PuppetPadlocal} = require("wechaty-puppet-padlocal");
 const config = require("./config");
 
-const token = config.PUPPET_TOKEN;
 const botName = config.BOTNAME;
 
 // 创建机器人
 const bot = new Wechaty({
-  puppet: new PuppetPadlocal({
-    token
-  }),
   name: botName
-})
+});
 
 module.exports = bot;
 
-//web协议
+// Note: Using web protocol instead of padlocal since it's more accessible for testing
+// To use padlocal protocol later, uncomment:
+// const {PuppetPadlocal} = require("wechaty-puppet-padlocal");
+// const token = config.PUPPET_TOKEN;
 // const bot = new Wechaty({
-//   name: "WeChat-Robot"
+//   puppet: new PuppetPadlocal({
+//     token
+//   }),
+//   name: botName
 // });

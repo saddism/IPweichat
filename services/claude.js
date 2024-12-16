@@ -1,22 +1,27 @@
-const superagent = require('../config/superagent');
+const { Anthropic } = require('@anthropic-ai/sdk');
 
 class ClaudeService {
   constructor() {
-    this.apiUrl = process.env.CLAUDE_API_URL;
-    this.apiKey = process.env.CLAUDE_API_KEY;
+    this.client = new Anthropic({
+      apiKey: process.env.CLAUDE_API_KEY,
+      baseURL: process.env.CLAUDE_API_URL
+    });
   }
 
   async rewriteToVideo(content) {
     try {
-      const response = await superagent.post(this.apiUrl)
-        .set('Authorization', `Bearer ${this.apiKey}`)
-        .send({
-          prompt: `Please rewrite the following content into a short video script format, including visual descriptions and narration:\n\n${content}`,
-          max_tokens: 2000,
-          temperature: 0.7
-        });
+      const message = await this.client.messages.create({
+        max_tokens: 1024,
+        messages: [
+          {
+            role: "user",
+            content: `Please rewrite the following content into a short video script format, including visual descriptions and narration:\n\n${content}`,
+          }
+        ],
+        model: "claude-3-5-sonnet@20240620"
+      });
 
-      return response.body.choices[0].text;
+      return message.content[0].text;
     } catch (error) {
       console.error('Claude API error:', error.message);
       throw error;
