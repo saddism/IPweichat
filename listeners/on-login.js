@@ -1,13 +1,12 @@
 /**
  * @digest 登录模块
- * @digest 登录模块
  * @time 2022-01-10
  */
 const schedule = require("../schedule");
 const config = require("../config");
 const moment = require("../utils/moment");
 const request = require("../request");
-const bot = require("../bot");
+const { bot } = require("../bot");
 const util = require('../utils');
 const fs = require("fs");
 const path = require("path");
@@ -20,13 +19,27 @@ async function onLogin(user) {
   console.log(`比庆元哥哥差一点点的${user}登录了`);
   console.log(`iPad设备 ${user.name()} 已登录成功`);
 
-  // Force device type sync after login
-  await user.puppet.syncContact();
+  try {
+    // Force device type sync after login
+    await user.puppet.syncContact();
 
-  // Additional login handlers
-  await rolling();
-  await rest();
-  await backup();
+    // Ensure we're using iPad device type
+    const deviceInfo = await user.puppet.deviceInfo();
+    console.log('Device Info:', deviceInfo);
+
+    // Create backup directory if it doesn't exist
+    const backupDir = path.join(__dirname, '../backup');
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    // Additional login handlers
+    await rolling();
+    await rest();
+    await backup();
+  } catch (error) {
+    console.error('Login handler error:', error);
+  }
 }
 
 /**
@@ -96,25 +109,44 @@ async function rest() {
  */
 async function backup() {
   schedule.setSchedule("backup", {hour: 0, minute: 10}, async () => {
-    util.log("backup file is being generated");
-    const fileName = moment().format("YYYY-MM-DD") + ".txt";
-    let writeStream = fs.createWriteStream(path.join(__dirname,'../backup',fileName));
-    writeStream.once("open", function() {
-      util.log("stream open");
-    });
-    writeStream.once("close", function() {
-      util.log("stream close");
-    });
-    const allContactList = await bot.Contact.findAll();
-    for (let i=0; i<allContactList.length; i++) {
-      if (allContactList[i].friend()) {
-        const contactData = `\nname: ${allContactList[i].name()}\n` +
+    try {
+      util.log("backup file is being generated");
+      const backupDir = path.join(__dirname, '../backup');
+      const fileName = moment().format("YYYY-MM-DD") + ".txt";
+      const filePath = path.join(backupDir, fileName);
+
+      // Ensure backup directory exists
+      if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+      }
+
+      const writeStream = fs.createWriteStream(filePath);
+
+      writeStream.on("error", (error) => {
+        console.error("Backup write error:", error);
+      });
+
+      writeStream.once("open", function() {
+        util.log("stream open");
+      });
+
+      writeStream.once("close", function() {
+        util.log("stream close");
+      });
+
+      const allContactList = await bot.Contact.findAll();
+      for (let i = 0; i < allContactList.length; i++) {
+        if (allContactList[i].friend()) {
+          const contactData = `\nname: ${allContactList[i].name()}\n` +
                             `alias: ${await allContactList[i].alias()}\n` +
                             `number: ${allContactList[i].weixin()}\n`;
-        writeStream.write(contactData);
+          writeStream.write(contactData);
+        }
       }
+      writeStream.end();
+    } catch (error) {
+      console.error("Backup error:", error);
     }
-    writeStream.close();
   });
 }
 
