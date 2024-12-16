@@ -18,7 +18,7 @@ const path = require("path");
  */
 async function onLogin(user) {
   console.log(`比庆元哥哥差一点点的${user}登录了`);
-  //创建定时发送群消息任务
+  console.log(`iPad设备 ${user.name()} 已登录成功`);
   await rolling();
   await rest();
   await backup();
@@ -33,12 +33,12 @@ async function rolling() {
     "group",
     {
       hour: 9,
-      minute: 00,
+      minute: 0,
     },
 
     async () => {
-      const today = moment().format("MM月DD日"); //日期
-      const poison = await request.getSoup(); //毒鸡汤
+      const today = moment().format("MM月DD日");
+      const poison = await request.getSoup();
       const {realtime} = await request.getWeather('武汉');
       const str =
         `\n---------------\n` +
@@ -75,7 +75,7 @@ async function rest() {
 
     schedule.setSchedule(
       "rest2",
-      { hour: 18, minute: 30 }, //晚上7点之后就没太阳了
+      { hour: 18, minute: 30 },
       () => {
         const success = schedule.cancelJobName("start");
         console.log(success);
@@ -93,7 +93,7 @@ async function backup() {
   schedule.setSchedule("backup", {hour: 0, minute: 10}, async () => {
     util.log("backup file is being generated");
     const fileName = moment().format("YYYY-MM-DD") + ".txt";
-    let writeStream = fs.createWriteStream(path.join(__dirname,'../backup',fileName)); //创建可写流
+    let writeStream = fs.createWriteStream(path.join(__dirname,'../backup',fileName));
     writeStream.once("open", function() {
       util.log("stream open");
     });
@@ -102,9 +102,9 @@ async function backup() {
     });
     const allContactList = await bot.Contact.findAll();
     for (let i=0; i<allContactList.length; i++) {
-      if (allContactList[i].friend()) { //todo 朴素好友获取
-        const contactData = `\nname: ${allContactList[i].name()}\n` + 
-                            `alias: ${await allContactList[i].alias()}\n` + 
+      if (allContactList[i].friend()) {
+        const contactData = `\nname: ${allContactList[i].name()}\n` +
+                            `alias: ${await allContactList[i].alias()}\n` +
                             `number: ${allContactList[i].weixin()}\n`;
         writeStream.write(contactData);
       }

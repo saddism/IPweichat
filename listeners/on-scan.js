@@ -3,15 +3,58 @@
  * @author Hilbert Yi
  * @time 2022-01-10
  */
-async function onScan (qrcode, status) {
+const schedule = require("../schedule");
+const { puppet } = require("../bot");
+
+let qrRefreshTimer = null;
+let isRefreshing = false;  // Add flag to prevent concurrent refreshes
+
+async function onScan(qrcode, status) {
+  // Generate terminal QR code
   require('qrcode-terminal').generate(qrcode, {small: true})
 
+  // Generate web QR code URL
   const qrcodeImageUrl = [
     'https://api.qrserver.com/v1/create-qr-code/?data=',
     encodeURIComponent(qrcode),
   ].join('')
 
-  console.log(status, qrcodeImageUrl)
+  console.log('QR Code Status:', status, '\nQR Code URL:', qrcodeImageUrl)
+
+  // Clear existing timer if any
+  if (qrRefreshTimer) {
+    schedule.cancelJobName('qr-refresh');
+    qrRefreshTimer = null;
+  }
+
+  // Set up refresh timer if QR code is waiting for scan
+  if (status === 2) { // Status 2 indicates waiting for scan
+    qrRefreshTimer = schedule.setSchedule(
+      'qr-refresh',
+      '*/1 * * * *', // Run every minute
+      async () => {
+        // Prevent concurrent refresh attempts
+        if (isRefreshing) {
+          console.log('QR code refresh already in progress...');
+          return;
+        }
+
+        console.log('QR code not scanned, generating new one...');
+        isRefreshing = true;
+
+        try {
+          await puppet.logout();
+          // Wait briefly before starting new login to prevent state conflicts
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await puppet.login();
+        } catch (error) {
+          console.error('Error refreshing QR code:', error);
+        } finally {
+          isRefreshing = false;
+        }
+      }
+    );
+  }
 }
 
-module.exports = onScan
+module.exports = onScan;

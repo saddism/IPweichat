@@ -23,16 +23,16 @@
  *          \  \ `_.   \_ __\ /__ _/   .-` /  /
  *      =====`-.____`.___ \_____/___.-`___.-'=====
  *                        `=---='
- * 
- * 
+ *
+ *
  *      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * 
+ *
  *            佛祖保佑     永不宕机     永无BUG
  */
 
-const login = require("./listeners/on-login"); 
-const message = require("./listeners/on-message"); 
-const scan = require("./listeners/on-scan"); 
+const login = require("./listeners/on-login");
+const message = require("./listeners/on-message");
+const scan = require("./listeners/on-scan");
 const friendship = require("./listeners/on-friendship");
 const roomJoin = require("./listeners/on-room-join");
 const roomLeave = require("./listeners/on-room-leave");
@@ -53,5 +53,11 @@ bot.on("room-leave", roomLeave);
 
 bot
   .start()
-  .then(() => console.log("开始登陆微信"))
+  .then(() => {
+    console.log("开始登陆微信");
+    // Add check for existing login
+    if (bot.logonoff()) {
+      console.log("已经登录");
+    }
+  })
   .catch(e => console.error(e));
