@@ -1,11 +1,9 @@
 /**
  * @digest 二维码模块
- * @digest 二维码模块
  * @time 2022-01-10
  */
 const schedule = require("../schedule");
-const bot = require("../bot");
-const startBot = require("../start").startBot;
+const { bot, startBot } = require("../bot");
 
 let qrRefreshTimer = null;
 let isRefreshing = false;
@@ -56,7 +54,7 @@ async function onScan(qrcode, status) {
           // Wait briefly before restart
           await new Promise(resolve => setTimeout(resolve, 1000));
 
-          // Start fresh login attempt using startBot
+          // Start fresh login attempt
           console.log('Starting new login attempt...');
           await startBot();
         } catch (error) {

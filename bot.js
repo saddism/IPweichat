@@ -1,5 +1,5 @@
 /**
- * @digest 入口文件
+ * @digest Bot initialization and management
  */
 const { Wechaty } = require("wechaty");
 const { PuppetPadlocal } = require("wechaty-puppet-padlocal");
@@ -37,6 +37,41 @@ class BotSingleton {
     }
     return BotSingleton.instance;
   }
+
+  static async startBot() {
+    const bot = BotSingleton.getInstance();
+    try {
+      // Remove all existing listeners and reset login state
+      bot.removeAllListeners();
+
+      // Register event handlers
+      const login = require("./listeners/on-login");
+      const message = require("./listeners/on-message");
+      const scan = require("./listeners/on-scan");
+      const friendship = require("./listeners/on-friendship");
+      const roomJoin = require("./listeners/on-room-join");
+      const roomLeave = require("./listeners/on-room-leave");
+
+      bot.on("login", login);
+      bot.on("message", message);
+      bot.on("scan", scan);
+      bot.on("friendship", friendship);
+      bot.on("room-join", roomJoin);
+      bot.on("room-leave", roomLeave);
+
+      // Only start if not already started
+      if (!bot.isLoggedOn) {
+        console.log("开始登陆微信");
+        await bot.start();
+      }
+    } catch (e) {
+      console.error("启动失败:", e);
+      process.exit(1);
+    }
+  }
 }
 
-module.exports = BotSingleton.getInstance();
+module.exports = {
+  bot: BotSingleton.getInstance(),
+  startBot: BotSingleton.startBot
+};
