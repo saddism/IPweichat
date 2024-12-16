@@ -39,25 +39,27 @@ const roomLeave = require("./listeners/on-room-leave");
 
 const bot = require("./bot");
 
-bot.on("login", login);
-
-bot.on("message", message);
-
-bot.on("scan", scan);
-
-bot.on("friendship", friendship);
-
-bot.on("room-join", roomJoin);
-
-bot.on("room-leave", roomLeave);
-
-bot
-  .start()
-  .then(() => {
-    console.log("开始登陆微信");
-    // Add check for existing login
+// Ensure clean start
+async function startBot() {
+  try {
     if (bot.logonoff()) {
-      console.log("已经登录");
+      await bot.logout();
     }
-  })
-  .catch(e => console.error(e));
+
+    // Register event handlers
+    bot.on("login", login);
+    bot.on("message", message);
+    bot.on("scan", scan);
+    bot.on("friendship", friendship);
+    bot.on("room-join", roomJoin);
+    bot.on("room-leave", roomLeave);
+
+    await bot.start();
+    console.log("开始登陆微信");
+  } catch (e) {
+    console.error("启动失败:", e);
+    process.exit(1);
+  }
+}
+
+startBot();

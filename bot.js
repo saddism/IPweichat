@@ -13,17 +13,19 @@ if (!token) {
   throw new Error('WECHATY_PUPPET_PADLOCAL_TOKEN is required. Please set it in your .env file.');
 }
 
-// 创建机器人
-const bot = new Wechaty({
-  puppet: new PuppetPadlocal({
-    token
-  }),
-  name: botName
-})
+// Create a singleton bot instance
+let botInstance = null;
 
-module.exports = bot;
+const createBot = () => {
+  if (!botInstance) {
+    botInstance = new Wechaty({
+      puppet: new PuppetPadlocal({
+        token
+      }),
+      name: botName
+    });
+  }
+  return botInstance;
+};
 
-//web协议
-// const bot = new Wechaty({
-//   name: "WeChat-Robot"
-// });
+module.exports = createBot();
