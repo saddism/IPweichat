@@ -3,4 +3,4 @@
 /password/*
 /config/index.js
 /config/test.js
-/config/ignore.json
+/config/ignore.json.env
