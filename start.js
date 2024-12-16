@@ -30,7 +30,7 @@
  *            佛祖保佑     永不宕机     永无BUG
  */
 
-const { LoginPolicy } = require('wechaty-puppet-padlocal/dist/proto/padlocal_pb');
+const { LoginPolicy } = require('padlocal-client-ts/dist/proto/padlocal_pb');
 const login = require("./listeners/on-login");
 const message = require("./listeners/on-message");
 const scan = require("./listeners/on-scan");
