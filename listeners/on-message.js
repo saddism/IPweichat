@@ -406,12 +406,51 @@ async function onWebRoomMessage(msg) {
 
   const isText = msg.type() === bot.Message.Type.Text;
   const room = msg.room();
+  const contact = msg.talker();
+  let content = msg.text();
+
+  // Handle @ mentions
+  if (await msg.mentionSelf()) {
+    util.log(`room: someone mentioned me`); // debug
+    content = content.replace(`@${config.BOTNAME}\u2005`, "").trim();
+
+    // Check if it's a rewrite command
+    if (reg.REWRITE_VIDEO.test(content)) {
+      try {
+        // Get the last message in the room
+        const messages = await room.messages();
+        const lastMsg = messages[messages.length - 1];
+
+        // Check if it's a WeChat article
+        if (lastMsg && reg.WECHAT_ARTICLE.test(lastMsg.text())) {
+          const articleUrl = lastMsg.text();
+
+          // Extract content from the article URL
+          const articleContent = await request.getArticleContent(articleUrl);
+
+          // Use Claude to rewrite the content
+          const claudeService = require('../services/claude');
+          const rewrittenContent = await claudeService.rewriteToVideo(articleContent);
+
+          await delay(200);
+          await msg.say(rewrittenContent);
+          return;
+        }
+      } catch (error) {
+        console.error('Error processing rewrite request:', error);
+        await msg.say('抱歉，处理改写请求时出现错误。请确保上一条消息是公众号文章链接。');
+        return;
+      }
+    }
+
+    // If not a rewrite command, process as normal message
+    await onPeopleMessage(msg);
+    return;
+  }
 
   if (isText) {
     // 响应@bot的文本消息
-    const contact = msg.talker();
     const sender = await contact.alias();
-    let content = msg.text();
     // content = content.replace(`@${config.BOTNAME}\u2005`, "");
 
     /* 特权消息 */
