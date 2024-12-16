@@ -43,17 +43,21 @@ async function onScan(qrcode, status) {
         isRefreshing = true;
 
         try {
-          // Only attempt logout if we're actually logged in
-          if (bot.logonoff()) {
+          // Stop the current bot instance
+          if (bot.isLoggedOn) {
             console.log('Logging out current session...');
-            await bot.puppet.logout();
-            // Wait briefly before starting new login
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await bot.logout();
           }
 
-          // Start new login attempt
+          // Stop the bot completely
+          await bot.stop();
+
+          // Wait briefly before restart
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Start fresh login attempt
           console.log('Starting new login attempt...');
-          await bot.puppet.login();
+          await bot.start();
         } catch (error) {
           console.error('Error refreshing QR code:', error);
           // Cancel the timer if we encounter an error
