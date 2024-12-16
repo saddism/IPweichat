@@ -1,7 +1,7 @@
 {
   "name": "wechat-robot-ipad-master",
   "version": "1.0.0",
-  "description": "基于Node.js和Wechaty的个人微信机器人",
+  "description": "基于Node.js和Wechaty的个人微信机器人，支持PuppetPadlocal和WeChatFerry实现",
   "main": "app.js",
   "dependencies": {
     "axios": "^0.25.0",
@@ -16,7 +16,9 @@
   },
   "scripts": {
     "test": "node start.js",
-    "start": "node start.js"
+    "start": "node start.js",
+    "start:padlocal": "node start.js",
+    "start:wcf": "python python_bot/start.py"
   },
   "repository": {
     "type": "git",
@@ -27,7 +29,9 @@
     "Node.js",
     "微信机器人",
     "毕业设计",
-    "JavaScript"
+    "JavaScript",
+    "Python",
+    "WeChatFerry"
   ],
   "author": "Hilbert Yi",
   "license": "ISC"
