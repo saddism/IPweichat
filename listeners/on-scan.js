@@ -43,12 +43,24 @@ async function onScan(qrcode, status) {
         isRefreshing = true;
 
         try {
-          await bot.puppet.logout();
-          // Wait briefly before starting new login to prevent state conflicts
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Only attempt logout if we're actually logged in
+          if (bot.logonoff()) {
+            console.log('Logging out current session...');
+            await bot.puppet.logout();
+            // Wait briefly before starting new login
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+
+          // Start new login attempt
+          console.log('Starting new login attempt...');
           await bot.puppet.login();
         } catch (error) {
           console.error('Error refreshing QR code:', error);
+          // Cancel the timer if we encounter an error
+          if (qrRefreshTimer) {
+            schedule.cancelJobName('qr-refresh');
+            qrRefreshTimer = null;
+          }
         } finally {
           isRefreshing = false;
         }
