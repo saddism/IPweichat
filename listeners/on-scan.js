@@ -4,22 +4,22 @@
  * @time 2022-01-10
  */
 const schedule = require("../schedule");
-const { puppet } = require("../bot");
+const bot = require("../bot");
 
 let qrRefreshTimer = null;
-let isRefreshing = false;  // Add flag to prevent concurrent refreshes
+let isRefreshing = false;
 
 async function onScan(qrcode, status) {
   // Generate terminal QR code
-  require('qrcode-terminal').generate(qrcode, {small: true})
+  require('qrcode-terminal').generate(qrcode, {small: true});
 
   // Generate web QR code URL
   const qrcodeImageUrl = [
     'https://api.qrserver.com/v1/create-qr-code/?data=',
     encodeURIComponent(qrcode),
-  ].join('')
+  ].join('');
 
-  console.log('QR Code Status:', status, '\nQR Code URL:', qrcodeImageUrl)
+  console.log('QR Code Status:', status, '\nQR Code URL:', qrcodeImageUrl);
 
   // Clear existing timer if any
   if (qrRefreshTimer) {
@@ -43,10 +43,10 @@ async function onScan(qrcode, status) {
         isRefreshing = true;
 
         try {
-          await puppet.logout();
+          await bot.puppet.logout();
           // Wait briefly before starting new login to prevent state conflicts
           await new Promise(resolve => setTimeout(resolve, 1000));
-          await puppet.login();
+          await bot.puppet.login();
         } catch (error) {
           console.error('Error refreshing QR code:', error);
         } finally {
