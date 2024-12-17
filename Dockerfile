@@ -33,6 +33,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     net-tools \
     dnsutils \
+    dbus \
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -45,15 +47,21 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage"
 ENV PYTHONPATH=/app
+ENV DISPLAY=:99
 
 COPY package*.json ./
 RUN npm install
 
 COPY . .
 
-# Create startup script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Create and configure entrypoint script
+RUN echo '#!/bin/bash\n\
+mkdir -p /var/run/dbus\n\
+dbus-daemon --system --fork\n\
+Xvfb :99 -screen 0 1024x768x16 &\n\
+sleep 1\n\
+exec "$@"' > /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["npm", "start"]
