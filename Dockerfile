@@ -43,6 +43,7 @@ COPY --from=python-base /usr/local/lib/python3.10/site-packages /usr/local/lib/p
 # Set environment variables for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage"
 ENV PYTHONPATH=/app
 
 COPY package*.json ./
