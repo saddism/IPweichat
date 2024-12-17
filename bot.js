@@ -7,9 +7,8 @@ const config = require('./config');
 
 const botName = config.BOTNAME;
 
-// Browser configuration with new headless mode and enhanced stability
+// Browser configuration with proper puppet options
 const browserConfig = {
-  headless: 'new',
   args: [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -24,18 +23,17 @@ const browserConfig = {
     '--disable-web-security',
     '--ignore-certificate-errors',
     '--no-first-run'
-  ],
-  timeout: 180000, // 3 minutes
-  navigationTimeout: 180000,
-  defaultViewport: null
+  ]
 };
 
-// Create bot instance with enhanced configuration
+// Create bot instance with puppet configuration
 const bot = WechatyBuilder.build({
   name: botName,
   puppet: 'wechaty-puppet-wechat',
   puppetOptions: {
-    browserOptions: browserConfig,
+    head: false,
+    stealthless: true,
+    launchOptions: browserConfig,
     retryTimes: 10,
     retryDelay: 15000
   }
