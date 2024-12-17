@@ -14,6 +14,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+TARGET_GROUP_NAME = "选题段子积累群（能改的发进来）"
+
 class WeChatBot:
     def __init__(self):
         load_dotenv()
@@ -21,6 +23,7 @@ class WeChatBot:
         self.login_callback = None
         self.logout_callback = None
         self.qr_callback = None
+        self.target_group = None
 
     def set_login_callback(self, callback):
         self.login_callback = callback
@@ -32,7 +35,6 @@ class WeChatBot:
         self.qr_callback = callback
 
     def _qr_handler(self, uuid, status, qrcode):
-        """Handle QR code events"""
         if status == '0':
             logger.info("Getting QR code...")
             if qrcode:
@@ -50,47 +52,66 @@ class WeChatBot:
             logger.warning("QR code expired, please refresh")
 
     def _login_handler(self):
-        """Handle login events"""
         logger.info("Successfully logged in")
+        # Find target group after successful login
+        self._find_target_group()
         if self.login_callback:
             self.login_callback()
 
     def _logout_handler(self):
-        """Handle logout events"""
         logger.info("Logged out")
         if self.logout_callback:
             self.logout_callback()
 
+    def _find_target_group(self):
+        groups = itchat.get_chatrooms(update=True)
+        for group in groups:
+            if group['NickName'] == TARGET_GROUP_NAME:
+                self.target_group = group
+                logger.info(f"Found target group: {TARGET_GROUP_NAME}")
+                return
+        logger.warning(f"Target group '{TARGET_GROUP_NAME}' not found")
+
     @staticmethod
     def _text_reply(msg):
-        """Handle text messages"""
         if msg['FromUserName'] == msg['ToUserName']:
             logger.info(f"Received self message, ignoring: {msg['Content']}")
             return None
 
-        if msg['Type'] == TEXT:
-            is_group = msg['User'].get('MemberList') is not None
-            if is_group:
-                sender = msg.get('ActualNickName', 'Unknown')
-                group_name = msg['User'].get('NickName', 'Unknown Group')
-                logger.info(f"Received group message from {sender} in {group_name}: {msg['Content']}")
-                return f"收到群消息: {msg['Content']}"
-            else:
-                sender = msg['User'].get('NickName', 'Unknown')
-                logger.info(f"Received private message from {sender}: {msg['Content']}")
-                return f"收到消息: {msg['Content']}"
-        return None
+        if msg['Type'] != TEXT:
+            return None
+
+        is_group = msg['User'].get('MemberList') is not None
+        if not is_group:
+            logger.info("Ignoring non-group message")
+            return None
+
+        group_name = msg['User'].get('NickName', 'Unknown Group')
+        if group_name != TARGET_GROUP_NAME:
+            logger.info(f"Ignoring message from non-target group: {group_name}")
+            return None
+
+        if not msg.get('IsAt'):
+            logger.info("Message does not mention bot, ignoring")
+            return None
+
+        sender = msg.get('ActualNickName', 'Unknown')
+        content = msg['Content'].split('\u2005')[-1].strip()
+        logger.info(f"Processing message from {sender} in {group_name}: {content}")
+
+        chat_room = itchat.update_chatroom(userName=msg['User']['UserName'])
+
+        response = f"收到来自 {sender} 的消息: {content}"
+        logger.info(f"Sending response: {response}")
+        return response
 
     def start(self):
-        """Start the WeChat bot"""
         logger.info("Starting WeChat bot...")
 
-        # Register message handlers
         @itchat.msg_register([TEXT], isFriendChat=True, isGroupChat=True)
         def handle_text_msg(msg):
             return self._text_reply(msg)
 
-        # Start bot with QR code callback
         itchat.auto_login(
             enableCmdQR=False,
             hotReload=True,
@@ -101,6 +122,5 @@ class WeChatBot:
         itchat.run()
 
     def stop(self):
-        """Stop the WeChat bot"""
         logger.info("Stopping WeChat bot...")
         itchat.logout()
