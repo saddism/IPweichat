@@ -7,31 +7,34 @@ const config = require('./config');
 
 const botName = config.BOTNAME;
 
-// Minimal browser configuration to avoid detection
+// Enhanced browser configuration with UOS support
 const browserConfig = {
   args: [
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-gpu',
     '--disable-dev-shm-usage',
+    '--disable-web-security',
+    '--disable-features=IsolateOrigins,site-per-process',
   ],
   headless: true,
   ignoreHTTPSErrors: true,
   defaultViewport: null,
 };
 
-// Create bot instance with puppet configuration
+// Create bot instance with UOS configuration
 const bot = WechatyBuilder.build({
   name: botName,
   puppet: 'wechaty-puppet-wechat',
   puppetOptions: {
     head: false,
     stealthless: false, // Enable stealth plugin
+    uos: true, // Enable UOS mode
     launchOptions: browserConfig,
   }
 });
 
-// Start bot with enhanced error handling
+// Start bot with enhanced error handling and retry mechanism
 const startBot = async () => {
   const maxRetries = 3;
   let retryCount = 0;
@@ -48,7 +51,7 @@ const startBot = async () => {
         console.log('Navigation timeout detected, cleaning up...');
         try {
           await bot.stop();
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          await new Promise(resolve => setTimeout(resolve, 10000)); // Increased cooldown
         } catch (stopError) {
           console.error('Error during cleanup:', stopError);
         }
@@ -56,8 +59,8 @@ const startBot = async () => {
 
       if (retryCount < maxRetries - 1) {
         retryCount++;
-        console.log(`Retrying in 5 seconds... (Attempt ${retryCount + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log(`Retrying in 10 seconds... (Attempt ${retryCount + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Increased wait time
         return attemptStart();
       } else {
         console.error('Max retries reached. Bot failed to start.');
