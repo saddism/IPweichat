@@ -7,7 +7,7 @@ const config = require('./config');
 
 const botName = config.BOTNAME;
 
-// Browser configuration with increased timeouts
+// Browser configuration with increased timeouts and enhanced stability
 const browserConfig = {
   headless: true,
   args: [
@@ -15,10 +15,26 @@ const browserConfig = {
     '--disable-setuid-sandbox',
     '--disable-gpu',
     '--disable-sync',
-    '--disable-translate'
+    '--disable-translate',
+    '--disable-extensions',
+    '--disable-background-networking',
+    '--disable-default-apps',
+    '--disable-notifications',
+    '--disable-web-security',
+    '--ignore-certificate-errors',
+    '--no-first-run',
+    '--window-size=1920,1080',
+    '--start-maximized',
+    '--hide-scrollbars',
+    '--mute-audio',
+    '--disable-features=site-per-process'
   ],
-  timeout: 120000, // Increase timeout to 2 minutes
-  navigationTimeout: 120000
+  timeout: 180000, // 3 minutes
+  navigationTimeout: 180000,
+  defaultViewport: {
+    width: 1920,
+    height: 1080
+  }
 };
 
 // Create bot instance with enhanced configuration
@@ -27,29 +43,50 @@ const bot = WechatyBuilder.build({
   puppet: 'wechaty-puppet-wechat',
   puppetOptions: {
     browserOptions: browserConfig,
-    retryTimes: 5,
-    retryDelay: 10000
+    retryTimes: 10,
+    retryDelay: 15000
   }
 });
 
-// Start bot with enhanced error handling
+// Start bot with enhanced error handling and retry mechanism
 const startBot = async () => {
-  try {
-    console.log('Starting bot with enhanced configuration...');
-    await bot.start();
-    console.log(`Bot ${botName} started successfully`);
-  } catch (e) {
-    console.error(`Failed to start bot: ${e}`);
-    // Attempt graceful shutdown of browser if it's a timeout error
-    if (e.message.includes('timeout')) {
-      console.log('Attempting graceful shutdown and restart...');
-      await bot.stop();
-      await new Promise(resolve => setTimeout(resolve, 5000));
+  let retryCount = 0;
+  const maxRetries = 3;
+  const retryDelay = 30000; // 30 seconds
+
+  const attemptStart = async () => {
+    try {
+      console.log(`Starting bot (attempt ${retryCount + 1}/${maxRetries})...`);
       await bot.start();
-    } else {
+      console.log(`Bot ${botName} started successfully`);
+      return true;
+    } catch (e) {
+      console.error(`Failed to start bot: ${e}`);
+      if (e.message.includes('timeout')) {
+        console.log('Attempting graceful cleanup...');
+        try {
+          await bot.stop();
+        } catch (stopError) {
+          console.error('Error during cleanup:', stopError);
+        }
+        return false;
+      }
       throw e;
     }
+  };
+
+  while (retryCount < maxRetries) {
+    if (await attemptStart()) {
+      return;
+    }
+    retryCount++;
+    if (retryCount < maxRetries) {
+      console.log(`Waiting ${retryDelay/1000} seconds before retry...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
   }
+
+  throw new Error(`Failed to start bot after ${maxRetries} attempts`);
 };
 
 module.exports = {
