@@ -1,6 +1,6 @@
 /**
  * @digest 登录模块
- * @author Hilbert Yi
+ * @digest 登录模块
  * @time 2022-01-10
  */
 const schedule = require("../schedule");
@@ -17,8 +17,7 @@ const path = require("path");
  * @param {登录的微信用户} user
  */
 async function onLogin(user) {
-  console.log(`比庆元哥哥差一点点的${user}登录了`);
-  //创建定时发送群消息任务
+  console.log(`${user}登录了`);
   await rolling();
   await rest();
   await backup();
@@ -33,12 +32,11 @@ async function rolling() {
     "group",
     {
       hour: 9,
-      minute: 00,
+      minute: 0,
     },
-
     async () => {
-      const today = moment().format("MM月DD日"); //日期
-      const poison = await request.getSoup(); //毒鸡汤
+      const today = moment().format("MM月DD日");
+      const poison = await request.getSoup();
       const {realtime} = await request.getWeather('武汉');
       const str =
         `\n---------------\n` +
@@ -47,12 +45,13 @@ async function rolling() {
         `${poison}\n` +
         `---------------\n` +
         `武汉天气：${realtime.temperature}℃ ${realtime.info}`;
-      for (let i = 0; i < config.WEBROOM.length; i++) {
-        const room = await bot.Room.find({
-          topic: config.WEBROOM[i],
-        });
-        const contactList = await room.memberAll();
-        await room.say(str, ...contactList);
+
+      for (const roomName of config.WEBROOM) {
+        const room = await bot.Room.find({ topic: roomName });
+        if (room) {
+          const members = Array.from(room.members.values());
+          await room.say(str, ...members);
+        }
       }
     }
   );
@@ -64,21 +63,21 @@ async function rolling() {
  */
 async function rest() {
   schedule.setSchedule("rest1", { hour: 8, minute: 30 }, () => {
-
     util.log("久坐提醒已上线");
 
     schedule.setSchedule("start", "*/30 * * * *", async () => {
       util.log("time for rest");
       const master = await bot.Contact.find({ alias: config.MYSELF });
-      master.say(`工作30min了，让眼睛休息下吧！`);
+      if (master) {
+        await master.say(`工作30min了，让眼睛休息下吧！`);
+      }
     });
 
     schedule.setSchedule(
       "rest2",
-      { hour: 18, minute: 30 }, //晚上7点之后就没太阳了
+      { hour: 18, minute: 30 },
       () => {
         const success = schedule.cancelJobName("start");
-        console.log(success);
         util.log(success === true ? "久坐提醒已关闭" : "久坐提醒已失败");
       }
     );
@@ -93,19 +92,17 @@ async function backup() {
   schedule.setSchedule("backup", {hour: 0, minute: 10}, async () => {
     util.log("backup file is being generated");
     const fileName = moment().format("YYYY-MM-DD") + ".txt";
-    let writeStream = fs.createWriteStream(path.join(__dirname,'../backup',fileName)); //创建可写流
-    writeStream.once("open", function() {
-      util.log("stream open");
-    });
-    writeStream.once("close", function() {
-      util.log("stream close");
-    });
-    const allContactList = await bot.Contact.findAll();
-    for (let i=0; i<allContactList.length; i++) {
-      if (allContactList[i].friend()) { //todo 朴素好友获取
-        const contactData = `\nname: ${allContactList[i].name()}\n` + 
-                            `alias: ${await allContactList[i].alias()}\n` + 
-                            `number: ${allContactList[i].weixin()}\n`;
+    let writeStream = fs.createWriteStream(path.join(__dirname,'../backup',fileName));
+
+    writeStream.once("open", () => util.log("stream open"));
+    writeStream.once("close", () => util.log("stream close"));
+
+    const contacts = Array.from(bot.contacts.values());
+    for (const contact of contacts) {
+      if (contact.type === bot.Contact.Type.Individual) {
+        const contactData = `\nname: ${contact.name}\n` +
+                          `alias: ${contact.alias}\n` +
+                          `number: ${contact.id}\n`;
         writeStream.write(contactData);
       }
     }

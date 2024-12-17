@@ -1,15 +1,46 @@
 /**
  * @digest 入口文件
  */
-const { Wechaty } = require("wechaty");
-const config = require("./config");
+const wechat = require('./services/wechat');
+const config = require('./config');
 
-const botName = config.BOTNAME;
+const bot = {
+  Message: wechat.Message,
+  Contact: wechat.Contact,
+  Room: wechat.Room,
 
-// 创建机器人
-const bot = new Wechaty({
-  name: botName,
-  puppet: 'wechaty-puppet-wechat'  // Switch to web protocol
-});
+  async start() {
+    return wechat.login();
+  },
+
+  on(event, callback) {
+    return wechat.on(event, callback);
+  },
+
+  Contact: {
+    find: async (query) => {
+      const contacts = wechat.contacts;
+      if (query.name) {
+        return Array.from(contacts.values()).find(c => c.name === query.name);
+      } else if (query.alias) {
+        return Array.from(contacts.values()).find(c => c.alias === query.alias);
+      }
+      return null;
+    },
+    findAll: async () => {
+      return Array.from(wechat.contacts.values());
+    }
+  },
+
+  Room: {
+    find: async (query) => {
+      const rooms = wechat.rooms;
+      if (query.topic) {
+        return Array.from(rooms.values()).find(r => r.name === query.topic);
+      }
+      return null;
+    }
+  }
+};
 
 module.exports = bot;

@@ -4,13 +4,13 @@
  * @time 2022-01-10
  */
 
-const { Friendship } = require("wechaty");
+const bot = require('../bot');
 
 /**
  * 自动同意好友请求
  */
 async function onFriendship(friendship) {
-  if (friendship.type() === Friendship.Type.Receive) {
+  if (friendship.type === bot.Contact.Type.FriendRequest) {
     await friendship.accept();
   }
 }

@@ -4,12 +4,7 @@
  * @time 2022-01-11
  */
 const bot = require("../bot.js");
-// let i=0
-// console.log(`消息测试数据${++i}`);
 const request = require("../request");
-
-const { UrlLink } = require("wechaty");
-const { FileBox } = require("file-box");
 
 const fs = require("fs");
 const path = require("path");
@@ -61,33 +56,22 @@ function getWxSignature() {
 }
 setInterval(getWxSignature(), 7200000); // 签名轮询/2小时
 
-
 /**
  * @func 处理消息
  * @time Create 2022-01-09 10:45
  */
 async function onMessage(msg) {
-  //! 避免机器人离线调试时，用户发送大量信息，致使消息事件堆积
   if (!recent(msg)) return;
-
-  //防止自己和自己对话
   if (msg.self()) return;
 
-  const room = msg.room(); // 是否是群消息
-
+  const room = msg.room;
   if (room) {
-    const roomName = await room.topic();
+    const roomName = room.name;
     if (config.WEBROOM.includes(roomName)) {
-      //属于被监听群聊
       await onWebRoomMessage(msg);
-    } else return;
-  } else {
-    //处理用户消息
-    const isText = msg.type() === bot.Message.Type.Text;
-    const isImg = msg.type() === bot.Message.Type.Image;
-    if (isText || isImg) {
-      await onPeopleMessage(msg);
     }
+  } else {
+    await onPeopleMessage(msg);
   }
 }
 
@@ -395,7 +379,7 @@ async function onPeopleMessage(msg) {
 async function onWebRoomMessage(msg) {
 
   const isText = msg.type() === bot.Message.Type.Text;
-  const room = msg.room();
+  const room = msg.room;
   const contact = msg.talker();
   let content = msg.text();
 
@@ -407,15 +391,15 @@ async function onWebRoomMessage(msg) {
     // Check if it's a rewrite command
     if (reg.REWRITE_VIDEO.test(content)) {
       try {
-        // 获取最近两条消息
-        const messages = await room.messages();
-        const recentMessages = messages.slice(-2);
+        // 获取最近的消息历史
+        const recentMessages = await room.messages(2); // Get last 2 messages
 
         // 查找文章链接
         let articleUrl = null;
         for (const message of recentMessages) {
-          if (reg.WECHAT_ARTICLE.test(message.text())) {
-            articleUrl = message.text();
+          const msgUrl = message.text().match(/(https?:\/\/[^\s]+)/);
+          if (msgUrl && msgUrl[1].includes('mp.weixin.qq.com')) {
+            articleUrl = msgUrl[1];
             break;
           }
         }
@@ -493,7 +477,7 @@ async function onWebRoomMessage(msg) {
 
       const valid = await request.checkUrl(testUrl[0]);
       if (!valid) {
-        const room = msg.room();
+        const room = msg.room;
         // const master = await room.member(config.BOTNAME);
         const warnTarget = [msg.talker()];
         // await room.say(
@@ -518,12 +502,10 @@ async function onWebRoomMessage(msg) {
  * @time Modified 2022-01-10 16:12
  */
 async function onUtilsMessage(msg) {
-
   const isText = msg.type() === bot.Message.Type.Text;
+  const content = msg.text();
 
   if (isText) {
-    let content = msg.text().trim(); // 消息内容
-
     if (content.indexOf("转大写") === 0) {
       try {
         const str = content.replace("转大写", "").trim().toUpperCase();
