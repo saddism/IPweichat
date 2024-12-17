@@ -25,8 +25,6 @@ const ImageHosting = require("../utils/Image-Hosting");
 
 const schedule = require("../schedule");
 
-const wechatyPuppetPadlocal = require(path.join(__dirname, '../node_modules/wechaty-puppet-padlocal/dist/puppet-padlocal.js'));
-
 process.on("unhandledRejection", (error) => {
   console.log("g点重现: ", error.message);
 });
@@ -82,14 +80,14 @@ async function onMessage(msg) {
     if (config.WEBROOM.includes(roomName)) {
       //属于被监听群聊
       await onWebRoomMessage(msg);
-    } else return; 
+    } else return;
   } else {
     //处理用户消息
     const isText = msg.type() === bot.Message.Type.Text;
     const isImg = msg.type() === bot.Message.Type.Image;
     if (isText || isImg) {
       await onPeopleMessage(msg);
-    } 
+    }
   }
 }
 
@@ -105,7 +103,7 @@ async function onPeopleMessage(msg) {
   const senderAlias = await contact.alias();
   util.log(`sender alias: ${senderAlias}`); //debug
   let content = msg.text(); // 消息内容
-  if (msg.room()) 
+  if (msg.room())
     content = content.replace(`@${config.BOTNAME}\u2005`, "");
   else {
     const toContact = msg.to();
@@ -134,8 +132,8 @@ async function onPeopleMessage(msg) {
   //   const allContactList = await bot.Contact.findAll();
   //   for (let i=0; i<allContactList.length; i++) {
   //     if (allContactList[i].friend()) { //todo 朴素好友获取
-  //       const contactData = `\nname: ${allContactList[i].name()}\n` + 
-  //                           `alias: ${await allContactList[i].alias()}\n` + 
+  //       const contactData = `\nname: ${allContactList[i].name()}\n` +
+  //                           `alias: ${await allContactList[i].alias()}\n` +
   //                           `number: ${allContactList[i].weixin()}\n`;
   //       writeStream.write(contactData);
   //     }
@@ -174,20 +172,9 @@ async function onPeopleMessage(msg) {
     }
 
     if (content === "刷新") {
-      await bot.Contact.findAll(); 
+      await bot.Contact.findAll();
       await delay(200);
       msg.say('refresh success');
-      return true;
-    } else if (content === "重载") {
-      try {
-        await wechatyPuppetPadlocal.syncContact(); //! 极度慎用！！！
-        await bot.Contact.findAll(); 
-        await delay(200);
-        msg.say('refresh success');
-      } catch (err) {
-        console.log("fresh err");
-        console.log(err);
-      }
       return true;
     }
 
