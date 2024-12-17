@@ -22,24 +22,29 @@ const browserConfig = {
     '--disable-notifications',
     '--disable-web-security',
     '--ignore-certificate-errors',
-    '--no-first-run'
+    '--no-first-run',
+    '--proxy-server="direct://"',
+    '--proxy-bypass-list=*',
+    '--start-maximized'
   ],
-  timeout: 300000, // 5 minutes
-  navigationTimeout: 300000,
+  headless: true,
+  timeout: 0, // Disable timeout
+  defaultViewport: null,
+  ignoreHTTPSErrors: true,
   waitUntil: 'networkidle0'
 };
 
-// Create bot instance with puppet configuration and extended timeouts
+// Create bot instance with puppet configuration
 const bot = WechatyBuilder.build({
   name: botName,
   puppet: 'wechaty-puppet-wechat',
   puppetOptions: {
     head: false,
     stealthless: true,
+    endpoint: 'https://wx.qq.com',
     launchOptions: browserConfig,
     retryTimes: 15,
-    retryDelay: 30000,
-    navigationTimeoutSeconds: 300
+    retryDelay: 30000
   }
 });
 
