@@ -7,7 +7,7 @@ RUN pip install -r requirements.txt
 
 FROM node:18-slim
 
-# Install system dependencies for Puppeteer
+# Install system dependencies for Puppeteer and debugging tools
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
@@ -33,7 +33,14 @@ RUN apt-get update && apt-get install -y \
     curl \
     net-tools \
     dnsutils \
-    && rm -rf /var/lib/apt/lists/*
+    procps \
+    htop \
+    vim \
+    lsof \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /usr/share/fonts/truetype/noto \
+    && mkdir -p /root/.cache/puppeteer \
+    && chmod -R 777 /root/.cache/puppeteer
 
 WORKDIR /app
 
@@ -46,9 +53,18 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage"
 ENV PYTHONPATH=/app
 
+# Create a non-root user for running Chrome
+RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
+    && mkdir -p /home/pptruser/Downloads \
+    && chown -R pptruser:pptruser /home/pptruser \
+    && chown -R pptruser:pptruser /app
+
 COPY package*.json ./
 RUN npm install
 
 COPY . .
+
+# Switch to non-root user
+USER pptruser
 
 CMD ["npm", "start"]
