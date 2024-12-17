@@ -1,8 +1,8 @@
-import QRCode from 'qrcode';
-import { ScanStatus } from 'wechaty';
-import util from '../utils/index.js';
+const QRCode = require('qrcode');
+const { ScanStatus } = require('wechaty');
+const util = require('../utils/index.js');
 
-export async function onScan(qrcode, status) {
+async function onScan(qrcode, status) {
   try {
     if (qrcode) {
       console.log(await QRCode.toString(qrcode, { type: 'terminal', small: true }));
@@ -35,4 +35,4 @@ export async function onScan(qrcode, status) {
   }
 }
 
-export default onScan;
+module.exports = onScan;

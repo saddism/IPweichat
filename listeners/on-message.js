@@ -1,27 +1,24 @@
 /*
- * @author Hilbert Yi
  * @digest Message handling with wechaty-puppet-wechat
  * @time 2022-01-11
  */
-import { FileBox } from 'file-box';
-import { UrlLink } from 'wechaty';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const { FileBox } = require('file-box');
+const { UrlLink } = require('wechaty');
+const fs = require('fs');
+const path = require('path');
 
-import bot from '../bot.js';
-import request from '../request/index.js';
-import config from '../config.js';
-import reg from '../config/RegularExpression.js';
-import language from '../config/language.js';
-import util from '../utils/index.js';
-import moment from '../utils/moment.js';
-import cipher from '../utils/cipher.js';
-import ImageHosting from '../utils/Image-Hosting.js';
-import schedule from '../schedule/index.js';
+const bot = require('../bot.js');
+const request = require('../request/index.js');
+const config = require('../config.js');
+const reg = require('../config/RegularExpression.js');
+const language = require('../config/language.js');
+const util = require('../utils/index.js');
+const moment = require('../utils/moment.js');
+const cipher = require('../utils/cipher.js');
+const ImageHosting = require('../utils/Image-Hosting.js');
+const schedule = require('../schedule/index.js');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(require.main.filename);
 
 process.on("unhandledRejection", (error) => {
   console.log("Unhandled Rejection: ", error.message);

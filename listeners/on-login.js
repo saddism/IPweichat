@@ -33,7 +33,7 @@ async function rolling() {
     "group",
     {
       hour: 9,
-      minute: 00,
+      minute: 0,
     },
 
     async () => {
@@ -103,8 +103,8 @@ async function backup() {
     const allContactList = await bot.Contact.findAll();
     for (let i=0; i<allContactList.length; i++) {
       if (allContactList[i].friend()) { //todo 朴素好友获取
-        const contactData = `\nname: ${allContactList[i].name()}\n` + 
-                            `alias: ${await allContactList[i].alias()}\n` + 
+        const contactData = `\nname: ${allContactList[i].name()}\n` +
+                            `alias: ${await allContactList[i].alias()}\n` +
                             `number: ${allContactList[i].weixin()}\n`;
         writeStream.write(contactData);
       }
