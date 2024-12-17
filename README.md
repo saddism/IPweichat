@@ -165,7 +165,7 @@
 - `config/`文件夹存放公共配置
 - `imgs/`存放相关图片
 - `password/` 存放密码簿生成文件
-- `listeners/`存放机器人初始化后一系列事件处理(分模块) 
+- `listeners/`存放机器人初始化后一系列事件处理(分模块)
   - `on-friendship.js` 处理好友请求
   - `on-login.js` 处理登录
   - `on-message.js` 处理用户消息、群消息
@@ -174,10 +174,77 @@
 - `schedule/` 对定时任务`node-schedule`库进行了封装
 - `superagent/` 存放所有的数据请求、接口封装都在此
 - `utils/` 公用方法的封装
-- `bot.js` 机器人实例文件
-- `start.js` 入口文件
+- `python_bot/` WeChatFerry Python实现
+  - `bot.py` 机器人核心实现
+  - `start.py` 启动脚本
+  - `requirements.txt` Python依赖
 
-## 四、clone后请按照如下操作修改
+## 四、实现方式
+
+### 4.1 PuppetPadlocal 实现 (Node.js)
+
+本项目默认使用 PuppetPadlocal 实现，基于 Node.js 和 Wechaty。
+
+#### 环境要求
+- Node.js
+- PuppetPadlocal token (见上方说明)
+- 相关 API tokens (见上方说明)
+
+#### 安装和运行
+1. 安装依赖
+```bash
+npm install
+```
+
+2. 配置环境变量
+- 复制 `.env.example` 到 `.env`
+- 填写所需的 token
+
+3. 运行机器人
+```bash
+npm run start:padlocal
+```
+
+### 4.2 WeChatFerry 实现 (Python)
+
+本项目现已支持使用 WeChatFerry 实现，基于 Python 3.10。
+
+#### 环境要求
+- Python 3.10 或更高版本
+- Windows 10/11 (64位) 操作系统
+  - 不支持Linux/MacOS环境（因WeChatFerry使用Windows DLL文件）
+- 微信 Windows 客户端
+  - 版本要求: 3.9.x.x
+  - 必须是已安装的桌面客户端，不支持网页版
+- 相关 API tokens (见上方说明)
+
+#### 安装和运行
+1. 安装 Python 依赖
+```bash
+cd python_bot
+python -m venv .venv
+.venv\Scripts\activate  # Windows环境使用此命令
+pip install -r requirements.txt
+```
+
+2. 配置环境变量
+- 确保 `.env` 文件包含所需的 API tokens
+
+3. 运行机器人
+```bash
+npm run start:wcf
+```
+
+#### 注意事项
+- WeChatFerry 实现仅支持 Windows 环境
+  - 运行在Linux/MacOS上会出现"invalid ELF header"错误
+  - 这是因为WeChatFerry依赖Windows特定的DLL文件
+- 使用真实的 Windows 微信客户端，无需额外的 token
+- 支持与 PuppetPadlocal 实现相同的功能
+- 登录过程使用 Windows 微信客户端扫码
+- 建议在开发/测试时使用Windows环境，或继续使用PuppetPadlocal方案
+
+## 五、配置说明
 需修改`config`配置，将里面的配置改为自己的。打开`config/`目录并新建`index.js` 文件， 文件内容如下：
 ```javascript
 /*
@@ -439,3 +506,69 @@ npm start start.js
 2021-11-23
 
 - 代码热更新部署
+
+## 七、Docker部署
+
+本项目支持使用Docker进行部署，同时支持PuppetPadlocal和WeChatFerry两种实现方式。
+
+### 7.1 环境要求
+
+- Docker
+- Docker Compose
+- Git
+
+### 7.2 PuppetPadlocal部署（推荐Linux环境）
+
+1. 克隆项目
+```bash
+git clone https://github.com/saddism/IPweichat.git
+cd IPweichat
+```
+
+2. 配置环境变量
+```bash
+cp .env.example .env
+# 编辑.env文件，填入必要的配置信息
+```
+
+3. 构建并启动容器
+```bash
+docker-compose up -d
+```
+
+4. 查看登录二维码
+```bash
+docker-compose logs -f
+```
+
+### 7.3 WeChatFerry部署（仅支持Windows）
+
+由于WeChatFerry依赖Windows特定的DLL文件，不支持Docker容器化部署。请参考4.2节在Windows环境下直接部署。
+
+### 7.4 Docker常用命令
+
+```bash
+# 查看容器状态
+docker-compose ps
+
+# 查看容器日志
+docker-compose logs -f
+
+# 重启服务
+docker-compose restart
+
+# 停止并删除容器
+docker-compose down
+
+# 重新构建并启动（代码更新后）
+docker-compose up -d --build
+```
+
+### 7.5 注意事项
+
+1. 首次启动时需要扫描二维码登录
+2. 环境变量配置参考第五节配置说明
+3. 建议在生产环境使用Docker部署PuppetPadlocal实现
+4. 如需使用WeChatFerry实现，请在Windows环境下直接部署
+5. 容器日志中可能会出现多个二维码，选择最新的一个进行扫描
+6. 请确保`.env`文件中的配置信息正确且完整

@@ -23,21 +23,21 @@
  *          \  \ `_.   \_ __\ /__ _/   .-` /  /
  *      =====`-.____`.___ \_____/___.-`___.-'=====
  *                        `=---='
- * 
- * 
+ *
+ *
  *      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * 
+ *
  *            佛祖保佑     永不宕机     永无BUG
  */
 
-const login = require("./listeners/on-login"); 
-const message = require("./listeners/on-message"); 
-const scan = require("./listeners/on-scan"); 
+const login = require("./listeners/on-login");
+const message = require("./listeners/on-message");
+const scan = require("./listeners/on-scan");
 const friendship = require("./listeners/on-friendship");
 const roomJoin = require("./listeners/on-room-join");
 const roomLeave = require("./listeners/on-room-leave");
 
-const bot = require("./bot");
+const { bot } = require("./bot");
 
 bot.on("login", login);
 
