@@ -7,17 +7,10 @@ const config = require('./config');
 
 const botName = config.BOTNAME;
 
-// Create bot instance using WechatyBuilder with minimal configuration
+// Create bot instance with minimal UOS configuration
 const bot = WechatyBuilder.build({
   name: botName,
-  puppet: 'wechaty-puppet-wechat',
-  puppetOptions: {
-    headless: false,  // Show browser for debugging
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox'
-    ]
-  }
+  puppet: 'wechaty-puppet-wechat'
 });
 
 // Start bot with error handling
