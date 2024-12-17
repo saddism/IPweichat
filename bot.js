@@ -7,13 +7,14 @@ const config = require('./config');
 
 const botName = config.BOTNAME;
 
-// Browser configuration with increased timeouts and enhanced stability
+// Browser configuration with new headless mode and enhanced stability
 const browserConfig = {
-  headless: true,
+  headless: 'new',
   args: [
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-gpu',
+    '--disable-dev-shm-usage',
     '--disable-sync',
     '--disable-translate',
     '--disable-extensions',
@@ -22,19 +23,11 @@ const browserConfig = {
     '--disable-notifications',
     '--disable-web-security',
     '--ignore-certificate-errors',
-    '--no-first-run',
-    '--window-size=1920,1080',
-    '--start-maximized',
-    '--hide-scrollbars',
-    '--mute-audio',
-    '--disable-features=site-per-process'
+    '--no-first-run'
   ],
   timeout: 180000, // 3 minutes
   navigationTimeout: 180000,
-  defaultViewport: {
-    width: 1920,
-    height: 1080
-  }
+  defaultViewport: null
 };
 
 // Create bot instance with enhanced configuration
