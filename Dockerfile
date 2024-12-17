@@ -1,6 +1,6 @@
 FROM node:18-slim
 
-# Install system dependencies for Puppeteer
+# Install system dependencies for Puppeteer and networking tools
 RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     libnss3 \
@@ -20,6 +20,10 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     git \
     chromium \
+    iputils-ping \
+    curl \
+    net-tools \
+    dnsutils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
