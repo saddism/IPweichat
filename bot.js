@@ -7,7 +7,7 @@ const config = require('./config');
 
 const botName = config.BOTNAME;
 
-// Browser configuration with proper puppet options and extended timeouts
+// Browser configuration with proper puppet options
 const browserConfig = {
   args: [
     '--no-sandbox',
@@ -40,7 +40,6 @@ const bot = WechatyBuilder.build({
   puppetOptions: {
     head: false,
     stealthless: true,
-    endpoint: 'https://web.wechat.com',
     launchOptions: browserConfig,
     retryTimes: 15,
     retryDelay: 30000
