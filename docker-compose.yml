@@ -17,10 +17,9 @@ services:
       - PUPPETEER_TIMEOUT=180000
       - PUPPETEER_NAVIGATION_TIMEOUT=180000
       - WECHATY_PUPPET_WECHAT_PUPPETEER_STEALTHLESS=true
-      - WECHATY_PUPPET_WECHAT_PUPPETEER_HEAD=true
+      - WECHATY_PUPPET_WECHAT_PUPPETEER_HEAD=false
       - PUPPETEER_ARGS=--no-sandbox --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage
       - TZ=Asia/Shanghai
       - PYTHONUNBUFFERED=1
-      - DISPLAY=:99
     restart: unless-stopped
     network_mode: "host"
