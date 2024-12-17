@@ -100,8 +100,19 @@ class WeChatClient extends EventEmitter {
         }
       });
 
-      // Response format: window.QRLogin.code = 200; window.QRLogin.uuid = "xxx"
-      const uuid = response.data.match(/uuid = "(.+?)"/)[1];
+      if (!response.data) {
+        throw new Error('获取二维码失败：服务器无响应');
+      }
+
+      const match = response.data.match(/window.QRLogin.code = (\d+); window.QRLogin.uuid = "(\S+?)"/);
+      if (!match) {
+        throw new Error('获取二维码失败：解析响应失败');
+      }
+
+      const [, code, uuid] = match;
+      if (code !== '200') {
+        throw new Error(`获取二维码失败：错误代码 ${code}`);
+      }
 
       log('生成登录二维码...');
       qrcode.generate(`https://login.weixin.qq.com/l/${uuid}`, {
@@ -114,7 +125,7 @@ class WeChatClient extends EventEmitter {
 
       return uuid;
     } catch (error) {
-      warn('获取登录二维码失败:' + error.message);
+      warn('获取二维码出错: ' + error.message);
       throw error;
     }
   }
@@ -135,21 +146,22 @@ class WeChatClient extends EventEmitter {
 
         const code = response.data.match(/window.code=(\d+)/)[1];
 
-        if (code === '201') {
-          log('扫描成功，请在手机上确认');
-          return { code, redirectUrl: null };
-        } else if (code === '200') {
-          const redirectUrl = response.data.match(/window.redirect_uri="(.+?)"/)[1];
-          log('登录成功，正在处理登录信息...');
-          return { code, redirectUrl };
-        } else if (code === '408') {
-          warn('登录超时，请重新扫码');
-          return { code, redirectUrl: null };
+        switch (code) {
+          case '201':
+            log('扫描成功，请在手机上确认');
+            return { code, redirectUrl: null };
+          case '200':
+            const redirectUrl = response.data.match(/window.redirect_uri="(.+?)"/)[1];
+            log('登录成功，正在处理登录信息...');
+            return { code, redirectUrl };
+          case '408':
+            warn('登录超时，请重新扫码');
+            return { code, redirectUrl: null };
+          default:
+            return { code, redirectUrl: null };
         }
-
-        return { code, redirectUrl: null };
       } catch (error) {
-        warn('等待登录出错:' + error.message);
+        warn('等待登录出错: ' + error.message);
         throw error;
       }
     };
@@ -200,20 +212,28 @@ class WeChatClient extends EventEmitter {
   }
 
   async _startMessagePolling() {
-    // Implementation to poll for new messages
-    setInterval(async () => {
-      try {
+    try {
+      log('开始消息轮询...');
+      while (this.isLoggedIn) {
         const messages = await this._fetchNewMessages();
-        for (const msg of messages) {
-          if (!this.messageHistory.has(msg.id)) {
-            this.messageHistory.add(msg.id);
-            this.emit('message', this._formatMessage(msg));
+        if (messages && messages.length > 0) {
+          log(`收到 ${messages.length} 条新消息`);
+          for (const msg of messages) {
+            if (!this.messageHistory.has(msg.id)) {
+              this.messageHistory.add(msg.id);
+              const formattedMsg = this._formatMessage(msg);
+              log(`处理消息 - 类型: ${formattedMsg.type}, 发送者: ${formattedMsg.talker().name()}, 内容: ${formattedMsg.text}`);
+              this.emit('message', formattedMsg);
+            }
           }
         }
-      } catch (error) {
-        console.error('Message polling failed:', error);
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
-    }, 1000);
+    } catch (error) {
+      warn('消息轮询出错: ' + error.message);
+      this.isLoggedIn = false;
+      this.emit('logout');
+    }
   }
 
   async _fetchNewMessages() {
