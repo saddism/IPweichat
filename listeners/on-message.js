@@ -18,8 +18,6 @@ const cipher = require('../utils/cipher.js');
 const ImageHosting = require('../utils/Image-Hosting.js');
 const schedule = require('../schedule/index.js');
 
-const __dirname = path.dirname(require.main.filename);
-
 process.on("unhandledRejection", (error) => {
   console.log("Unhandled Rejection: ", error.message);
 });
@@ -617,4 +615,4 @@ ${citystr}
   }
 }
 
-export default onMessage;
+module.exports = onMessage;
