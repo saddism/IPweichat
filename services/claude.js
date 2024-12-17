@@ -11,7 +11,7 @@ class ClaudeService {
       const response = await superagent.post(this.apiUrl)
         .set('Authorization', `Bearer ${this.apiKey}`)
         .send({
-          prompt: `Please rewrite the following content into a short video script format, including visual descriptions and narration:\n\n${content}`,
+          prompt: `请将以下文章改写成800-1000字的短视频文案，包含画面描述和旁白：\n\n${content}\n\n要求：\n1. 保持核心信息完整\n2. 使用简单易懂的语言\n3. 适合视频展示的节奏`,
           max_tokens: 2000,
           temperature: 0.7
         });
