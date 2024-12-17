@@ -30,8 +30,7 @@ const browserConfig = {
   headless: true,
   timeout: 0, // Disable timeout
   defaultViewport: null,
-  ignoreHTTPSErrors: true,
-  waitUntil: 'networkidle0'
+  ignoreHTTPSErrors: true
 };
 
 // Create bot instance with puppet configuration
@@ -41,7 +40,6 @@ const bot = WechatyBuilder.build({
   puppetOptions: {
     head: false,
     stealthless: true,
-    endpoint: 'https://wx.qq.com',
     launchOptions: browserConfig,
     retryTimes: 15,
     retryDelay: 30000
