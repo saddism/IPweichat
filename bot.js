@@ -6,6 +6,7 @@ const { WechatyBuilder } = require('wechaty');
 const config = require('./config');
 
 const botName = config.BOTNAME;
+const WECHAT_URL = 'https://web.weixin.qq.com/?lang=zh_CN';  // Use alternative WeChat endpoint
 
 // Create bot instance using WechatyBuilder with enhanced browser configuration
 const bot = WechatyBuilder.build({
@@ -13,6 +14,7 @@ const bot = WechatyBuilder.build({
   puppet: 'wechaty-puppet-wechat',
   puppetOptions: {
     timeout: 180000,  // Increase timeout to 3 minutes
+    endpoint: WECHAT_URL,  // Add WeChat web endpoint
     browserOptions: {
       headless: true,
       args: [
@@ -22,7 +24,9 @@ const bot = WechatyBuilder.build({
         '--disable-dev-shm-usage',
         '--no-first-run',
         '--disable-features=IsolateOrigins',
-        '--disable-site-isolation-trials'
+        '--disable-site-isolation-trials',
+        '--disable-web-security',  // Add this to bypass some network restrictions
+        '--ignore-certificate-errors'  // Handle potential SSL issues
       ]
     },
     launchOptions: {
@@ -37,7 +41,8 @@ const bot = WechatyBuilder.build({
     },
     navigationOptions: {
       waitUntil: 'networkidle0',
-      timeout: 180000  // Match the puppet timeout
+      timeout: 180000,  // Match the puppet timeout
+      url: WECHAT_URL  // Add explicit navigation URL
     }
   }
 });
