@@ -12,7 +12,7 @@ const bot = WechatyBuilder.build({
   name: botName,
   puppet: 'wechaty-puppet-wechat',
   puppetOptions: {
-    timeout: 120000,  // Increase timeout to 2 minutes
+    timeout: 180000,  // Increase timeout to 3 minutes
     browserOptions: {
       headless: true,
       args: [
@@ -30,7 +30,14 @@ const bot = WechatyBuilder.build({
       defaultViewport: {
         width: 1280,
         height: 800
-      }
+      },
+      waitForInitialPage: true,
+      timeout: 180000,  // Match the puppet timeout
+      protocolTimeout: 180000  // Add protocol timeout
+    },
+    navigationOptions: {
+      waitUntil: 'networkidle0',
+      timeout: 180000  // Match the puppet timeout
     }
   }
 });
