@@ -1,35 +1,29 @@
-#!/usr/bin/env python3
-import os
-import sys
-from pathlib import Path
-import logging
-from dotenv import load_dotenv
 from bot import WeChatBot
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-LOG = logging.getLogger("WeChat-Startup")
+import logging
 
 def main():
-    """Initialize and start the WeChat bot"""
-    try:
-        # Load environment variables
-        env_path = Path(__file__).parent.parent / '.env'
-        load_dotenv(env_path)
+    bot = WeChatBot()
 
-        # Initialize and start bot
-        LOG.info("Starting WeChat bot...")
-        bot = WeChatBot()
+    def on_qr(qr_path):
+        logging.info(f"New QR code generated: {qr_path}")
+
+    def on_login():
+        logging.info("Bot logged in successfully")
+
+
+    def on_logout():
+        logging.info("Bot logged out")
+
+    # Set callbacks
+    bot.set_qr_callback(on_qr)
+    bot.set_login_callback(on_login)
+    bot.set_logout_callback(on_logout)
+
+    try:
         bot.start()
     except KeyboardInterrupt:
-        LOG.info("Shutting down bot...")
+        logging.info("Shutting down...")
         bot.stop()
-    except Exception as e:
-        LOG.error(f"Failed to start bot: {e}")
-        sys.exit(1)
 
 if __name__ == "__main__":
     main()
