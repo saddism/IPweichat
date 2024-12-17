@@ -1,10 +1,9 @@
 /**
- * @author Hilbert Yi
- * @time 2022-01-11
  * @digest WeChat Bot using wechaty-puppet-wechat
  */
-import { WechatyBuilder } from 'wechaty';
-import { config } from './config.js';
+
+const { WechatyBuilder } = require('wechaty');
+const config = require('./config');
 
 const botName = config.BOTNAME;
 
@@ -15,7 +14,7 @@ const bot = WechatyBuilder.build({
 });
 
 // Start bot with error handling
-export const startBot = async () => {
+const startBot = async () => {
   try {
     await bot.start();
     console.log(`Bot ${botName} started successfully`);
@@ -25,4 +24,7 @@ export const startBot = async () => {
   }
 };
 
-export default bot;
+module.exports = {
+  bot,
+  startBot
+};
