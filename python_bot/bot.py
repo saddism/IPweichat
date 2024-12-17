@@ -36,9 +36,7 @@ class WeChatBot:
         if status == '0':
             logger.info("Getting QR code...")
             if qrcode:
-                # Convert QR code to image
                 img = Image.open(io.BytesIO(qrcode))
-                # Save QR code image
                 qr_path = 'qr.png'
                 img.save(qr_path)
                 logger.info(f"QR code saved to {qr_path}")
@@ -66,15 +64,29 @@ class WeChatBot:
     @staticmethod
     def _text_reply(msg):
         """Handle text messages"""
-        logger.info(f"Received message from {msg['FromUserName']}: {msg['Content']}")
-        # Echo the message back for testing
-        return f"收到消息: {msg['Content']}"
+        if msg['FromUserName'] == msg['ToUserName']:
+            logger.info(f"Received self message, ignoring: {msg['Content']}")
+            return None
+
+        if msg['Type'] == TEXT:
+            is_group = msg['User'].get('MemberList') is not None
+            if is_group:
+                sender = msg.get('ActualNickName', 'Unknown')
+                group_name = msg['User'].get('NickName', 'Unknown Group')
+                logger.info(f"Received group message from {sender} in {group_name}: {msg['Content']}")
+                return f"收到群消息: {msg['Content']}"
+            else:
+                sender = msg['User'].get('NickName', 'Unknown')
+                logger.info(f"Received private message from {sender}: {msg['Content']}")
+                return f"收到消息: {msg['Content']}"
+        return None
 
     def start(self):
         """Start the WeChat bot"""
         logger.info("Starting WeChat bot...")
+
         # Register message handlers
-        @itchat.msg_register([TEXT])
+        @itchat.msg_register([TEXT], isFriendChat=True, isGroupChat=True)
         def handle_text_msg(msg):
             return self._text_reply(msg)
 

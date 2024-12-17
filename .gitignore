@@ -4,3 +4,14 @@
 /config/index.js
 /config/test.js
 /config/ignore.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.pkl
+
+# WeChat bot specific
+Crystal.memory-card.json
+itchat.pkl
