@@ -1,10 +1,12 @@
 /**
  * @digest utils工具
- * @author Hilbert Yi
+ * @digest utils工具
  * @time 2022-01-11
  */
 
 const moment = require('./moment');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * rgb转hex
@@ -52,23 +54,41 @@ function timestamp() {
 }
 
 /**
+ * Write log message to file
+ * @param {string} message Log message
+ * @param {string} type Log type (info/warn)
+ */
+function writeToLog(message, type = 'info') {
+    const logDir = path.join(__dirname, '../logs');
+    const today = moment().format('YYYY-MM-DD');
+    const logFile = path.join(logDir, `${today}.log`);
+    const logMessage = `[${type.toUpperCase()}] ${timestamp()} ${message}\n`;
+
+    try {
+        fs.appendFileSync(logFile, logMessage);
+    } catch (error) {
+        console.error(`Failed to write to log file: ${error.message}`);
+    }
+}
+
+/**
  * @func log方法重载,带时间戳
- * @param {string} content 
+ * @param {string} content
  */
 function log(content) {
     const loginfo = `${timestamp()} ${content}`;
     console.log(loginfo);
+    writeToLog(content, 'info');
 }
 
 function warn(content) {
     const warninfo = `${timestamp()} ${content}`;
     console.warn(warninfo);
+    writeToLog(content, 'warn');
 }
 
-//timestamp();
-
 module.exports = {
-    colorRGBtoHex, 
+    colorRGBtoHex,
     colorHextoRGB,
     log, warn,
 }
