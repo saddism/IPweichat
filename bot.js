@@ -7,30 +7,17 @@ const config = require('./config');
 
 const botName = config.BOTNAME;
 
-// Browser configuration with proper puppet options
+// Minimal browser configuration to avoid detection
 const browserConfig = {
   args: [
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-gpu',
     '--disable-dev-shm-usage',
-    '--disable-sync',
-    '--disable-translate',
-    '--disable-extensions',
-    '--disable-background-networking',
-    '--disable-default-apps',
-    '--disable-notifications',
-    '--disable-web-security',
-    '--ignore-certificate-errors',
-    '--no-first-run',
-    '--proxy-server="direct://"',
-    '--proxy-bypass-list=*',
-    '--start-maximized'
   ],
   headless: true,
-  timeout: 0, // Disable timeout
+  ignoreHTTPSErrors: true,
   defaultViewport: null,
-  ignoreHTTPSErrors: true
 };
 
 // Create bot instance with puppet configuration
@@ -39,30 +26,37 @@ const bot = WechatyBuilder.build({
   puppet: 'wechaty-puppet-wechat',
   puppetOptions: {
     head: false,
-    stealthless: true,
+    stealthless: false, // Enable stealth plugin
     launchOptions: browserConfig,
-    retryTimes: 15,
-    retryDelay: 30000
   }
 });
 
-// Start bot with retry mechanism
+// Start bot with enhanced error handling
 const startBot = async () => {
   const maxRetries = 3;
   let retryCount = 0;
 
   const attemptStart = async () => {
     try {
+      console.log(`Starting bot (attempt ${retryCount + 1}/${maxRetries})...`);
       await bot.start();
       console.log('Bot started successfully');
     } catch (error) {
       console.error('Failed to start bot:', error);
 
-      if (retryCount < maxRetries) {
-        retryCount++;
-        console.log(`Retrying... Attempt ${retryCount} of ${maxRetries}`);
+      if (error.message.includes('Navigation Timeout')) {
+        console.log('Navigation timeout detected, cleaning up...');
+        try {
+          await bot.stop();
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        } catch (stopError) {
+          console.error('Error during cleanup:', stopError);
+        }
+      }
 
-        // Wait before retrying
+      if (retryCount < maxRetries - 1) {
+        retryCount++;
+        console.log(`Retrying in 5 seconds... (Attempt ${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, 5000));
         return attemptStart();
       } else {
