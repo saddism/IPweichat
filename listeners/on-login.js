@@ -35,23 +35,31 @@ async function rolling() {
       minute: 0,
     },
     async () => {
-      const today = moment().format("MM月DD日");
-      const poison = await request.getSoup();
-      const {realtime} = await request.getWeather('武汉');
-      const str =
-        `\n---------------\n` +
-        `今天是${today},你毕业设计做完了吗?\n` +
-        `---------------\n` +
-        `${poison}\n` +
-        `---------------\n` +
-        `武汉天气：${realtime.temperature}℃ ${realtime.info}`;
+      try {
+        const today = moment().format("MM月DD日");
+        const poison = await request.getSoup();
+        const {realtime} = await request.getWeather('武汉');
+        const str =
+          `\n---------------\n` +
+          `今天是${today},你毕业设计做完了吗?\n` +
+          `---------------\n` +
+          `${poison}\n` +
+          `---------------\n` +
+          `武汉天气：${realtime.temperature}℃ ${realtime.info}`;
 
-      for (const roomName of config.WEBROOM) {
-        const room = await bot.Room.find({ topic: roomName });
-        if (room) {
-          const members = Array.from(room.members.values());
-          await room.say(str, ...members);
+        for (const roomName of config.WEBROOM) {
+          try {
+            const room = await bot.Room.find({ topic: roomName });
+            if (room) {
+              const members = Array.from(room.members.values());
+              await room.say(str, ...members);
+            }
+          } catch (roomError) {
+            util.log(`发送消息到群 ${roomName} 失败:`, roomError);
+          }
         }
+      } catch (error) {
+        util.log("定时群消息发送失败:", error);
       }
     }
   );
@@ -63,24 +71,32 @@ async function rolling() {
  */
 async function rest() {
   schedule.setSchedule("rest1", { hour: 8, minute: 30 }, () => {
-    util.log("久坐提醒已上线");
+    try {
+      util.log("久坐提醒已上线");
 
-    schedule.setSchedule("start", "*/30 * * * *", async () => {
-      util.log("time for rest");
-      const master = await bot.Contact.find({ alias: config.MYSELF });
-      if (master) {
-        await master.say(`工作30min了，让眼睛休息下吧！`);
-      }
-    });
+      schedule.setSchedule("start", "*/30 * * * *", async () => {
+        try {
+          util.log("time for rest");
+          const master = await bot.Contact.find({ alias: config.MYSELF });
+          if (master) {
+            await master.say(`工作30min了，让眼睛休息下吧！`);
+          }
+        } catch (error) {
+          util.log("休息提醒发送失败:", error);
+        }
+      });
 
-    schedule.setSchedule(
-      "rest2",
-      { hour: 18, minute: 30 },
-      () => {
-        const success = schedule.cancelJobName("start");
-        util.log(success === true ? "久坐提醒已关闭" : "久坐提醒已失败");
-      }
-    );
+      schedule.setSchedule(
+        "rest2",
+        { hour: 18, minute: 30 },
+        () => {
+          const success = schedule.cancelJobName("start");
+          util.log(success === true ? "久坐提醒已关闭" : "久坐提醒已失败");
+        }
+      );
+    } catch (error) {
+      util.log("久坐提醒设置失败:", error);
+    }
   });
 }
 
@@ -90,23 +106,35 @@ async function rest() {
  */
 async function backup() {
   schedule.setSchedule("backup", {hour: 0, minute: 10}, async () => {
-    util.log("backup file is being generated");
-    const fileName = moment().format("YYYY-MM-DD") + ".txt";
-    let writeStream = fs.createWriteStream(path.join(__dirname,'../backup',fileName));
+    try {
+      util.log("backup file is being generated");
+      const backupDir = path.join(__dirname, '../backup');
 
-    writeStream.once("open", () => util.log("stream open"));
-    writeStream.once("close", () => util.log("stream close"));
+      // Ensure backup directory exists
+      if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+      }
 
-    const contacts = Array.from(bot.contacts.values());
-    for (const contact of contacts) {
-      if (contact.type === bot.Contact.Type.Individual) {
-        const contactData = `\nname: ${contact.name}\n` +
+      const fileName = moment().format("YYYY-MM-DD") + ".txt";
+      let writeStream = fs.createWriteStream(path.join(backupDir, fileName));
+
+      writeStream.once("open", () => util.log("stream open"));
+      writeStream.once("close", () => util.log("stream close"));
+      writeStream.once("error", (err) => util.log("stream error:", err));
+
+      const contacts = Array.from(bot.contacts.values());
+      for (const contact of contacts) {
+        if (contact.type === bot.Contact.Type.Individual) {
+          const contactData = `\nname: ${contact.name}\n` +
                           `alias: ${contact.alias}\n` +
                           `number: ${contact.id}\n`;
-        writeStream.write(contactData);
+          writeStream.write(contactData);
+        }
       }
+      writeStream.end();
+    } catch (error) {
+      util.log("backup error:", error);
     }
-    writeStream.close();
   });
 }
 
