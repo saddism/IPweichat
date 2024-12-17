@@ -40,51 +40,40 @@ const bot = WechatyBuilder.build({
   puppetOptions: {
     head: false,
     stealthless: true,
+    endpoint: 'https://web.wechat.com',
     launchOptions: browserConfig,
     retryTimes: 15,
     retryDelay: 30000
   }
 });
 
-// Start bot with enhanced error handling and retry mechanism
+// Start bot with retry mechanism
 const startBot = async () => {
-  let retryCount = 0;
   const maxRetries = 3;
-  const retryDelay = 30000; // 30 seconds
+  let retryCount = 0;
 
   const attemptStart = async () => {
     try {
-      console.log(`Starting bot (attempt ${retryCount + 1}/${maxRetries})...`);
       await bot.start();
-      console.log(`Bot ${botName} started successfully`);
-      return true;
-    } catch (e) {
-      console.error(`Failed to start bot: ${e}`);
-      if (e.message.includes('timeout')) {
-        console.log('Attempting graceful cleanup...');
-        try {
-          await bot.stop();
-        } catch (stopError) {
-          console.error('Error during cleanup:', stopError);
-        }
-        return false;
+      console.log('Bot started successfully');
+    } catch (error) {
+      console.error('Failed to start bot:', error);
+
+      if (retryCount < maxRetries) {
+        retryCount++;
+        console.log(`Retrying... Attempt ${retryCount} of ${maxRetries}`);
+
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return attemptStart();
+      } else {
+        console.error('Max retries reached. Bot failed to start.');
+        throw error;
       }
-      throw e;
     }
   };
 
-  while (retryCount < maxRetries) {
-    if (await attemptStart()) {
-      return;
-    }
-    retryCount++;
-    if (retryCount < maxRetries) {
-      console.log(`Waiting ${retryDelay/1000} seconds before retry...`);
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
-    }
-  }
-
-  throw new Error(`Failed to start bot after ${maxRetries} attempts`);
+  return attemptStart();
 };
 
 module.exports = {
