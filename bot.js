@@ -6,7 +6,7 @@ const { WechatyBuilder } = require('wechaty');
 const config = require('./config');
 
 const botName = config.BOTNAME;
-const WECHAT_URL = 'https://web.weixin.qq.com/?lang=zh_CN';  // Use alternative WeChat endpoint
+const WECHAT_URL = 'https://web.weixin.qq.com/?lang=zh_CN';
 
 // Create bot instance using WechatyBuilder with enhanced browser configuration
 const bot = WechatyBuilder.build({
@@ -14,9 +14,10 @@ const bot = WechatyBuilder.build({
   puppet: 'wechaty-puppet-wechat',
   puppetOptions: {
     timeout: 180000,  // Increase timeout to 3 minutes
-    endpoint: WECHAT_URL,  // Add WeChat web endpoint
+    endpoint: WECHAT_URL,
     browserOptions: {
       headless: true,
+      executablePath: '/usr/bin/chromium',  // Use installed Chromium
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -25,8 +26,8 @@ const bot = WechatyBuilder.build({
         '--no-first-run',
         '--disable-features=IsolateOrigins',
         '--disable-site-isolation-trials',
-        '--disable-web-security',  // Add this to bypass some network restrictions
-        '--ignore-certificate-errors'  // Handle potential SSL issues
+        '--disable-web-security',
+        '--ignore-certificate-errors'
       ]
     },
     launchOptions: {
@@ -36,13 +37,11 @@ const bot = WechatyBuilder.build({
         height: 800
       },
       waitForInitialPage: true,
-      timeout: 180000,  // Match the puppet timeout
-      protocolTimeout: 180000  // Add protocol timeout
+      timeout: 180000
     },
     navigationOptions: {
       waitUntil: 'networkidle0',
-      timeout: 180000,  // Match the puppet timeout
-      url: WECHAT_URL  // Add explicit navigation URL
+      timeout: 180000
     }
   }
 });
@@ -54,7 +53,7 @@ const startBot = async () => {
     console.log(`Bot ${botName} started successfully`);
   } catch (e) {
     console.error(`Failed to start bot: ${e}`);
-    throw e; // Re-throw to allow caller to handle
+    throw e;
   }
 };
 
