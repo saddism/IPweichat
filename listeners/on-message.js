@@ -1,39 +1,35 @@
 /*
  * @author Hilbert Yi
- * @digest 消息监听
+ * @digest Message handling with wechaty-puppet-wechat
  * @time 2022-01-11
  */
-const bot = require("../bot.js");
-// let i=0
-// console.log(`消息测试数据${++i}`);
-const request = require("../request");
+import { FileBox } from 'file-box';
+import { UrlLink } from 'wechaty';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const { UrlLink } = require("wechaty");
-const { FileBox } = require("file-box");
+import bot from '../bot.js';
+import request from '../request/index.js';
+import config from '../config.js';
+import reg from '../config/RegularExpression.js';
+import language from '../config/language.js';
+import util from '../utils/index.js';
+import moment from '../utils/moment.js';
+import cipher from '../utils/cipher.js';
+import ImageHosting from '../utils/Image-Hosting.js';
+import schedule from '../schedule/index.js';
 
-const fs = require("fs");
-const path = require("path");
-
-const config = require("../config");
-const reg = require("../config/RegularExpression");
-const language = require("../config/language");
-
-const util = require("../utils");
-const moment = require("../utils/moment");
-const cipher = require("../utils/cipher");
-const ImageHosting = require("../utils/Image-Hosting");
-
-const schedule = require("../schedule");
-
-const wechatyPuppetPadlocal = require(path.join(__dirname, '../node_modules/wechaty-puppet-padlocal/dist/puppet-padlocal.js'));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 process.on("unhandledRejection", (error) => {
-  console.log("g点重现: ", error.message);
+  console.log("Unhandled Rejection: ", error.message);
 });
 
 /**
- * @function 延迟处理消息
- * @param {number} ms 延迟毫秒
+ * @function Delay message processing
+ * @param {number} ms Delay in milliseconds
  */
 const delay = ms =>
   new Promise((resolve) => setTimeout(resolve, ms)).catch((err) => {
@@ -41,9 +37,9 @@ const delay = ms =>
   });
 
 /**
-  * @func 是否为1分钟内的消息
-  * @returns true/false
-  */
+ * @func Check if message is within last minute
+ * @returns true/false
+ */
 const recent = msg => {
   if (msg.age() > 60)
     return false;
@@ -52,41 +48,34 @@ const recent = msg => {
 
 let wxSignature = 'initial';
 function getWxSignature() {
-  wxSignature = request.getSignature().then( result => {
+  wxSignature = request.getSignature().then(result => {
     wxSignature = result;
   });
-  util.warn(`签名更新`);
+  util.warn(`Signature updated`);
   return getWxSignature;
 }
-setInterval(getWxSignature(), 7200000); // 签名轮询/2小时
-
+setInterval(getWxSignature(), 7200000); // Signature polling every 2 hours
 
 /**
- * @func 处理消息
- * @time Create 2022-01-09 10:45
+ * @func Handle incoming messages
  */
 async function onMessage(msg) {
-  //! 避免机器人离线调试时，用户发送大量信息，致使消息事件堆积
   if (!recent(msg)) return;
-
-  //防止自己和自己对话
   if (msg.self()) return;
 
-  const room = msg.room(); // 是否是群消息
+  const room = msg.room();
 
   if (room) {
     const roomName = await room.topic();
     if (config.WEBROOM.includes(roomName)) {
-      //属于被监听群聊
       await onWebRoomMessage(msg);
-    } else return; 
+    }
   } else {
-    //处理用户消息
     const isText = msg.type() === bot.Message.Type.Text;
     const isImg = msg.type() === bot.Message.Type.Image;
     if (isText || isImg) {
       await onPeopleMessage(msg);
-    } 
+    }
   }
 }
 
@@ -102,7 +91,7 @@ async function onPeopleMessage(msg) {
   const senderAlias = await contact.alias();
   util.log(`sender alias: ${senderAlias}`); //debug
   let content = msg.text(); // 消息内容
-  if (msg.room()) 
+  if (msg.room())
     content = content.replace(`@${config.BOTNAME}\u2005`, "");
   else {
     const toContact = msg.to();
@@ -131,8 +120,8 @@ async function onPeopleMessage(msg) {
   //   const allContactList = await bot.Contact.findAll();
   //   for (let i=0; i<allContactList.length; i++) {
   //     if (allContactList[i].friend()) { //todo 朴素好友获取
-  //       const contactData = `\nname: ${allContactList[i].name()}\n` + 
-  //                           `alias: ${await allContactList[i].alias()}\n` + 
+  //       const contactData = `\nname: ${allContactList[i].name()}\n` +
+  //                           `alias: ${await allContactList[i].alias()}\n` +
   //                           `number: ${allContactList[i].weixin()}\n`;
   //       writeStream.write(contactData);
   //     }
@@ -171,14 +160,13 @@ async function onPeopleMessage(msg) {
     }
 
     if (content === "刷新") {
-      await bot.Contact.findAll(); 
+      await bot.Contact.findAll();
       await delay(200);
       msg.say('refresh success');
       return true;
     } else if (content === "重载") {
       try {
-        await wechatyPuppetPadlocal.syncContact(); //! 极度慎用！！！
-        await bot.Contact.findAll(); 
+        await bot.Contact.findAll();
         await delay(200);
         msg.say('refresh success');
       } catch (err) {
@@ -204,8 +192,8 @@ async function onPeopleMessage(msg) {
         delay(200);
         msg.say(`请检查定时/群发消息指令格式!`);
         return true;
-      } 
-    } 
+      }
+    }
 
     // 销毁定时任务
     else if (content.includes("销毁")) {
@@ -228,7 +216,7 @@ async function onPeopleMessage(msg) {
         util.log(`filename: ${filename}\nfilecontent: ${filecontent}`); // debug
         fs.writeFile(path.join(__dirname, "/../password", filename), filecontent, (err) => {
           if (err) console.error("writeFileErr: " + err);
-          else msg.say("记录成功!"); 
+          else msg.say("记录成功!");
         });
         return true;
       } else {
@@ -398,9 +386,8 @@ async function onPeopleMessage(msg) {
 }
 
 /**
- * @func 处理群消息
- * @param {消息对象} msg
- * @time Modified 2022-01-09 23:17
+ * @func Handle group messages
+ * @param {Message} msg Message object
  */
 async function onWebRoomMessage(msg) {
 
@@ -411,7 +398,7 @@ async function onWebRoomMessage(msg) {
 
   // Handle @ mentions
   if (await msg.mentionSelf()) {
-    util.log(`room: someone mentioned me`); // debug
+    util.log(`room: someone mentioned me`);
     content = content.replace(`@${config.BOTNAME}\u2005`, "").trim();
 
     // Check if it's a rewrite command
@@ -449,48 +436,39 @@ async function onWebRoomMessage(msg) {
   }
 
   if (isText) {
-    // 响应@bot的文本消息
+    // Respond to @bot text messages
     const sender = await contact.alias();
-    // content = content.replace(`@${config.BOTNAME}\u2005`, "");
 
-    /* 特权消息 */
+    /* Special privileges */
     if (sender === config.MYSELF) {
-      // 踢人功能  群里发送  踢@某某某  即可
+      // Kick user functionality
       if (content.includes("踢@")) {
-        //如果是机器人好友且备注是自己的大号备注  才执行踢人操作
-        // edit at 0109：备注无法获取是因为要等官方后台数据刷新才行。踢人要管理员权限
         const delName = content.replace("踢@", "").trim();
-        util.log("踢出" + delName); // debug
-        const delContact = await room.member({ name: delName }); //! 按name搜索存在同名的情况，如果可以还是要用wx_id
+        util.log("踢出" + delName);
+        const delContact = await room.member({ name: delName });
         await room.del(delContact);
         await msg.say(`<${delName}>已被移除群聊。且聊且珍惜啊！`);
         return;
       }
     }
 
-    //todo 将群聊内的指令直接作为people消息处理
+    // Process group commands as private messages
     if (await msg.mentionSelf()) {
-      util.log(`room: someone mentioned me`); // debug
+      util.log(`room: someone mentioned me`);
       await onPeopleMessage(msg);
       return;
     }
 
-    // 检验链接消息合法性
+    // Validate link messages
     if (reg.URL.test(msg.text())) {
-      reg.URL.lastIndex = 0; // 索引重置
+      reg.URL.lastIndex = 0;
 
       const testUrl = reg.URL.exec(msg.text());
 
       const valid = await request.checkUrl(testUrl[0]);
       if (!valid) {
         const room = msg.room();
-        // const master = await room.member(config.BOTNAME);
         const warnTarget = [msg.talker()];
-        // await room.say(
-        //   `@${msg
-        //     .talker()
-        //     .name()} 为了群主与众管理员的法律安全，本群禁止发送不明链接!!!`
-        // );
         await room.say(
           `为了群主与众管理员的法律安全，本群禁止发送不明链接!!!`,
           ...warnTarget
@@ -504,15 +482,14 @@ async function onWebRoomMessage(msg) {
 }
 
 /**
- * @func utils消息处理
- * @time Modified 2022-01-10 16:12
+ * @func Handle utility messages
+ * @param {Message} msg Message object
  */
 async function onUtilsMessage(msg) {
-
   const isText = msg.type() === bot.Message.Type.Text;
 
   if (isText) {
-    let content = msg.text().trim(); // 消息内容
+    let content = msg.text().trim();
 
     if (content.indexOf("转大写") === 0) {
       try {
@@ -556,16 +533,14 @@ async function onUtilsMessage(msg) {
       return true;
     } else if (content.includes("天气")) {
       try {
-        let cityName = content.replace("天气", "").trim(); // 城市名
+        let cityName = content.replace("天气", "").trim();
         const { city, realtime, future } = await request.getWeather(
           cityName
         );
-        // 当天
         let weatherStr = `城市：${city}\n${moment().format("MM月DD日")}：${
           realtime.temperature
         }℃  ${realtime.info}\n`;
         weatherStr += `----------\n未来五天   天气预报\n----------\n`;
-        // 预报后面五天
         for (let i = 1; i <= 5; i++) {
           weatherStr =
             weatherStr +
@@ -609,7 +584,7 @@ async function onUtilsMessage(msg) {
 
     // 省/自治区 肺炎数据
     else if (content.includes("肺炎")) {
-      let newContent = content.replace("肺炎", "").trim(); // 城市名
+      let newContent = content.replace("肺炎", "").trim();
       if (config.PROVINCE.includes(newContent)) {
         const data = await request.getProvinceFeiyan(newContent);
         let citystr = `名称  确诊  治愈  死亡\n`;
@@ -638,11 +613,11 @@ ${citystr}
       }
       return true;
     } else {
-      return false; // 不是utils消息
+      return false;
     }
   } else {
-    return false; // 是群消息,不是文本消息
+    return false;
   }
 }
 
-module.exports = onMessage;
+export default onMessage;

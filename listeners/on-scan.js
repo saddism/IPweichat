@@ -1,17 +1,38 @@
-/**
- * @digest 二维码模块
- * @author Hilbert Yi
- * @time 2022-01-10
- */
-async function onScan (qrcode, status) {
-  require('qrcode-terminal').generate(qrcode, {small: true})
+import QRCode from 'qrcode';
+import { ScanStatus } from 'wechaty';
+import util from '../utils/index.js';
 
-  const qrcodeImageUrl = [
-    'https://api.qrserver.com/v1/create-qr-code/?data=',
-    encodeURIComponent(qrcode),
-  ].join('')
+export async function onScan(qrcode, status) {
+  try {
+    if (qrcode) {
+      console.log(await QRCode.toString(qrcode, { type: 'terminal', small: true }));
 
-  console.log(status, qrcodeImageUrl)
+      const qrcodeImageUrl = `https://wechaty.js.org/qrcode/${encodeURIComponent(qrcode)}`;
+
+      switch (status) {
+        case ScanStatus.Waiting:
+          util.log('Waiting for scan');
+          break;
+        case ScanStatus.Scanned:
+          util.log('Scanned, please confirm on phone');
+          break;
+        case ScanStatus.Confirmed:
+          util.log('Login confirmed');
+          break;
+        case ScanStatus.Timeout:
+          util.warn('QR code expired, please refresh');
+          break;
+        default:
+          util.log(`Unknown status: ${status}`);
+      }
+
+      console.log('QR Code URL:', qrcodeImageUrl);
+    } else {
+      util.warn('No QR code received from Wechaty');
+    }
+  } catch (error) {
+    util.error(`QR code generation failed: ${error.message}`);
+  }
 }
 
-module.exports = onScan
+export default onScan;

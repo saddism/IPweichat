@@ -1,26 +1,28 @@
 /**
  * @author Hilbert Yi
  * @time 2022-01-11
- * @digest 入口文件
+ * @digest WeChat Bot using wechaty-puppet-wechat
  */
-const { Wechaty } = require("wechaty");
-const {PuppetPadlocal} = require("wechaty-puppet-padlocal");
-const config = require("./config");
+import { WechatyBuilder } from 'wechaty';
+import { config } from './config.js';
 
-const token = config.PUPPET_TOKEN;
 const botName = config.BOTNAME;
 
-// 创建机器人
-const bot = new Wechaty({
-  puppet: new PuppetPadlocal({
-    token
-  }),
-  name: botName
-})
+// Create bot instance using WechatyBuilder
+const bot = WechatyBuilder.build({
+  name: botName,
+  puppet: 'wechaty-puppet-wechat'
+});
 
-module.exports = bot;
+// Start bot with error handling
+export const startBot = async () => {
+  try {
+    await bot.start();
+    console.log(`Bot ${botName} started successfully`);
+  } catch (e) {
+    console.error(`Failed to start bot: ${e}`);
+    throw e; // Re-throw to allow caller to handle
+  }
+};
 
-//web协议
-// const bot = new Wechaty({
-//   name: "WeChat-Robot"
-// });
+export default bot;

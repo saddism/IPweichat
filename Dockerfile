@@ -1,14 +1,10 @@
-FROM node:14.18.3
+FROM node:16-slim
 
-WORKDIR /src
+WORKDIR /app
 
-COPY ["package.json", "package-lock.json", "./"] 
+COPY package*.json ./
+RUN npm install
 
 COPY . .
 
-RUN echo "Asia/Shanghai" > /etc/timezone \
-    && npm i nrm -g \
-    && nrm use taobao \
-    && npm i pm2 -g
-
-CMD ["pm2-runtime", "start.js"]
+CMD ["npm", "start"]
