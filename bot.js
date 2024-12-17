@@ -13,8 +13,6 @@ const bot = WechatyBuilder.build({
   puppet: 'wechaty-puppet-wechat',
   puppetOptions: {
     timeout: 120000,  // Increase timeout to 2 minutes
-    endpoint: 'https://wx.qq.com/?lang=zh_CN&target=t',  // Specify WeChat web endpoint
-    uos: true,  // Enable uos mode for better compatibility
     browserOptions: {
       headless: true,
       args: [
@@ -26,6 +24,13 @@ const bot = WechatyBuilder.build({
         '--disable-features=IsolateOrigins',
         '--disable-site-isolation-trials'
       ]
+    },
+    launchOptions: {
+      ignoreDefaultArgs: ['--disable-extensions'],
+      defaultViewport: {
+        width: 1280,
+        height: 800
+      }
     }
   }
 });
