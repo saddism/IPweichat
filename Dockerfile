@@ -7,7 +7,7 @@ RUN pip install -r requirements.txt
 
 FROM node:18-slim
 
-# Install system dependencies for Puppeteer and networking tools
+# Install system dependencies for Puppeteer
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
@@ -33,8 +33,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     net-tools \
     dnsutils \
-    dbus \
-    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -47,21 +45,10 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage"
 ENV PYTHONPATH=/app
-ENV DISPLAY=:99
 
 COPY package*.json ./
 RUN npm install
 
 COPY . .
 
-# Create and configure entrypoint script
-RUN echo '#!/bin/bash\n\
-mkdir -p /var/run/dbus\n\
-dbus-daemon --system --fork\n\
-Xvfb :99 -screen 0 1024x768x16 &\n\
-sleep 1\n\
-exec "$@"' > /usr/local/bin/docker-entrypoint.sh && \
-    chmod +x /usr/local/bin/docker-entrypoint.sh
-
-ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["npm", "start"]
