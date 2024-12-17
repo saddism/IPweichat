@@ -7,5 +7,10 @@ sleep 5
 # Set timezone
 echo "Asia/Shanghai" > /etc/timezone
 
-# Start the application
+# Start Python bot in background
+cd /app/python_bot
+python3 start.py &
+
+# Start Node.js bot
+cd /app
 exec "$@"

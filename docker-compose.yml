@@ -5,10 +5,12 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/python_bot/__pycache__
     environment:
       - WECHATY_PUPPET=wechaty-puppet-wechat
       - WECHATY_LOG=verbose
       - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
       - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1
     restart: unless-stopped
