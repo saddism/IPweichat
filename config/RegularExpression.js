@@ -21,7 +21,7 @@ module.exports = {
     // 翻译 [from] [to] 文本
     TRANSLATE: /^翻译\s(\S+.?)+$/,
     // 改写短视频指令
-    REWRITE_VIDEO: /^改写(短视频)?$/,
+    REWRITE_VIDEO: /^@\S+\s改写(短视频)?$/,
     // 公众号文章链接
     WECHAT_ARTICLE: /^https?:\/\/mp\.weixin\.qq\.com\/s\/.+$/,
 }

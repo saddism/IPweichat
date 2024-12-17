@@ -41,6 +41,9 @@ const recent = msg => {
   return true;
 }
 
+// 存储已改写的文章URL
+const rewrittenArticles = new Set();
+
 let wxSignature = 'initial';
 function getWxSignature() {
   wxSignature = request.getSignature().then(result => {
@@ -399,28 +402,48 @@ async function onWebRoomMessage(msg) {
     // Check if it's a rewrite command
     if (reg.REWRITE_VIDEO.test(content)) {
       try {
-        // Get the last message in the room
+        // 获取最近两条消息
         const messages = await room.messages();
-        const lastMsg = messages[messages.length - 1];
+        const recentMessages = messages.slice(-2);
 
-        // Check if it's a WeChat article
-        if (lastMsg && reg.WECHAT_ARTICLE.test(lastMsg.text())) {
-          const articleUrl = lastMsg.text();
+        // 查找文章链接
+        let articleUrl = null;
+        for (const message of recentMessages) {
+          if (reg.WECHAT_ARTICLE.test(message.text())) {
+            articleUrl = message.text();
+            break;
+          }
+        }
 
-          // Extract content from the article URL
-          const articleContent = await request.getArticleContent(articleUrl);
-
-          // Use Claude to rewrite the content
-          const claudeService = require('../services/claude');
-          const rewrittenContent = await claudeService.rewriteToVideo(articleContent);
-
-          await delay(200);
-          await msg.say(rewrittenContent);
+        if (!articleUrl) {
+          await room.say("未找到最近的公众号文章链接");
           return;
         }
+
+        // 检查是否已改写
+        if (rewrittenArticles.has(articleUrl)) {
+          await room.say("该文章已经改写过了");
+          return;
+        }
+
+        await room.say("好的，我会开始改写这篇文章了。");
+
+        // 获取文章内容
+        const articleContent = await request.article.getArticleContent(articleUrl);
+
+        // 使用Claude API改写
+        const claudeService = require('../services/claude');
+        const rewrittenContent = await claudeService.rewriteToVideo(articleContent);
+
+        // 发送改写结果
+        await room.say(rewrittenContent);
+
+        // 记录已改写文章
+        rewrittenArticles.add(articleUrl);
+        return;
       } catch (error) {
         console.error('Error processing rewrite request:', error);
-        await msg.say('抱歉，处理改写请求时出现错误。请确保上一条消息是公众号文章链接。');
+        await room.say('抱歉，处理改写请求时出现错误。请确保上一条消息是公众号文章链接。');
         return;
       }
     }
