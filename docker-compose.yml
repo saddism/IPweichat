@@ -8,4 +8,7 @@ services:
     environment:
       - WECHATY_PUPPET=wechaty-puppet-wechat
       - WECHATY_LOG=verbose
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      - TZ=Asia/Shanghai
     restart: unless-stopped
