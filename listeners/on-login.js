@@ -17,10 +17,21 @@ const path = require("path");
  * @param {登录的微信用户} user
  */
 async function onLogin(user) {
-  console.log(`${user}登录了`);
-  await rolling();
-  await rest();
-  await backup();
+  try {
+    util.log('登录事件触发');
+    util.log(`用户 ${user.name()} (ID: ${user.id}) 登录成功`);
+    util.log(`用户类型: ${user.type()}`);
+    util.log('正在初始化定时任务...');
+
+    await rolling();
+    await rest();
+    await backup();
+
+    util.log('所有定时任务初始化完成');
+  } catch (error) {
+    util.warn(`登录处理发生错误: ${error.message}`);
+    throw error; // Re-throw to allow upper layers to handle
+  }
 }
 
 /**
@@ -36,6 +47,7 @@ async function rolling() {
     },
     async () => {
       try {
+        util.log('开始执行定时群消息任务...');
         const today = moment().format("MM月DD日");
         const poison = await request.getSoup();
         const {realtime} = await request.getWeather('武汉');
@@ -52,14 +64,16 @@ async function rolling() {
             const room = await bot.Room.find({ topic: roomName });
             if (room) {
               const members = Array.from(room.members.values());
+              util.log(`正在发送消息到群: ${roomName}`);
               await room.say(str, ...members);
+              util.log(`成功发送消息到群: ${roomName}`);
             }
           } catch (roomError) {
-            util.log(`发送消息到群 ${roomName} 失败:`, roomError);
+            util.warn(`发送消息到群 ${roomName} 失败: ${roomError.message}`);
           }
         }
       } catch (error) {
-        util.log("定时群消息发送失败:", error);
+        util.warn("定时群消息发送失败: " + error.message);
       }
     }
   );

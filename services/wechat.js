@@ -1,40 +1,62 @@
 const axios = require('axios');
 const qrcode = require('qrcode-terminal');
-const EventEmitter = require('events');
+const { EventEmitter } = require('events');
 const { log, warn } = require('../utils');
 
 class WeChatClient extends EventEmitter {
   constructor() {
     super();
+    this.baseUrl = 'https://wx.qq.com/cgi-bin/mmwebwx-bin/';
     this.isLoggedIn = false;
-    this.contacts = new Map();
+    this.currentUUID = null;
+    this.qrCodeTimer = null;
+    this.qrCodeTimestamp = null;
+    this.userInfo = {
+      id: null,
+      name: null,
+      wxuin: null,
+      wxsid: null,
+      skey: null,
+      syncKey: null
+    };
+    this.cookie = '';
     this.rooms = new Map();
-    this.messageHistory = new Set();
-    this.Message = {
-      Type: {
-        Text: 'text',
-        Image: 'image',
-        Url: 'url'
-      }
+    this.contacts = new Map();
+
+    // Connection state
+    this.connectionState = {
+      status: 'disconnected',
+      lastConnected: null,
+      reconnectAttempts: 0
     };
   }
 
   async login() {
     try {
-      // Generate QR code for login
-      const qrCode = await this._getLoginQRCode();
-      this.emit('scan', qrCode);
+      log('建立连接', {
+        timestamp: new Date().toISOString(),
+        previousState: this.connectionState.status
+      });
 
-      // Wait for scan and login
+      this.connectionState.status = 'connecting';
+      await this._generateAndEmitQRCode();
       await this._waitForLogin();
-
       this.isLoggedIn = true;
+      log('登录成功，正在初始化...');
       this.emit('login', this.userInfo);
-
-      // Start message polling
+      log('开始消息监听...');
       this._startMessagePolling();
+
+      log('连接成功', {
+        timestamp: new Date().toISOString(),
+        uuid: this.currentUUID
+      });
+
+      this.connectionState.status = 'connected';
+      this.connectionState.lastConnected = new Date();
     } catch (error) {
-      console.error('Login failed:', error);
+      this.connectionState.status = 'error';
+      warn('登录失败: ' + error.message);
       throw error;
     }
   }
@@ -49,10 +71,9 @@ class WeChatClient extends EventEmitter {
     }
 
     try {
-      // Send message implementation
       await this._sendMessageToUser(to, content);
     } catch (error) {
-      console.error('Failed to send message:', error);
+      warn('发送消息失败: ' + error.message);
       throw error;
     }
   }
@@ -63,10 +84,9 @@ class WeChatClient extends EventEmitter {
     }
 
     try {
-      // Send group message implementation
       await this._sendMessageToRoom(roomId, content, mentions);
     } catch (error) {
-      console.error('Failed to send room message:', error);
+      warn('发送群消息失败: ' + error.message);
       throw error;
     }
   }
@@ -88,7 +108,7 @@ class WeChatClient extends EventEmitter {
   };
 
   // Private methods for WeChat Web API integration
-  async _getLoginQRCode() {
+  async _generateAndEmitQRCode() {
     try {
       log('正在获取登录二维码...');
       const response = await axios.get('https://login.wx.qq.com/jslogin', {
@@ -119,25 +139,59 @@ class WeChatClient extends EventEmitter {
         small: true
       });
 
-      // Generate backup QR code URL
-      const backupUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(uuid)}`;
-      log(`备用二维码链接: ${backupUrl}`);
+      this.qrCodeTimestamp = Date.now();
+      this.currentUUID = uuid;
+      this.emit('scan', uuid, 0, this);
+
+      // Set up auto-regeneration timer
+      if (this.qrCodeTimer) {
+        clearTimeout(this.qrCodeTimer);
+      }
+      this.qrCodeTimer = setTimeout(async () => {
+        if (!this.isLoggedIn) {
+          log('二维码已过期');
+          try {
+            // Clear timer first
+            clearTimeout(this.qrCodeTimer);
+            this.qrCodeTimer = null;
+            // Store old UUID before attempting regeneration
+            const oldUUID = this.currentUUID;
+            try {
+              // Generate new QR code
+              await this._generateAndEmitQRCode();
+            } catch (error) {
+              // Restore old UUID if regeneration fails
+              this.currentUUID = oldUUID;
+              warn('重新生成二维码失败: ' + (error.message || '未知错误'));
+              // Retry after 5 seconds
+              setTimeout(async () => {
+                await this._generateAndEmitQRCode().catch(retryError => {
+                  warn('重试生成二维码失败: ' + (retryError.message || '未知错误'));
+                });
+              }, 5000);
+            }
+          } catch (error) {
+            warn('二维码更新过程出错: ' + (error.message || '未知错误'));
+          }
+        }
+      }, 60000); // 1 minute
 
       return uuid;
     } catch (error) {
-      warn('获取二维码出错: ' + error.message);
+      const errorMessage = error.message || '未知错误';
+      warn('获取二维码出错: ' + errorMessage);
       throw error;
     }
   }
 
-  async _waitForLogin(uuid) {
+  async _waitForLogin() {
     const checkLogin = async () => {
       try {
         log('正在等待扫码...');
         const response = await axios.get('https://login.wx.qq.com/cgi-bin/mmwebwx-bin/login', {
           params: {
             loginicon: true,
-            uuid: uuid,
+            uuid: this.currentUUID,
             tip: 1,
             r: ~new Date(),
             _: Date.now()
@@ -149,13 +203,16 @@ class WeChatClient extends EventEmitter {
         switch (code) {
           case '201':
             log('扫描成功，请在手机上确认');
+            this.emit('scan', this.currentUUID, 1, this);
             return { code, redirectUrl: null };
           case '200':
             const redirectUrl = response.data.match(/window.redirect_uri="(.+?)"/)[1];
             log('登录成功，正在处理登录信息...');
+            this.emit('scan', this.currentUUID, 2, this);
             return { code, redirectUrl };
           case '408':
             warn('登录超时，请重新扫码');
+            this.emit('scan', this.currentUUID, 3, this);
             return { code, redirectUrl: null };
           default:
             return { code, redirectUrl: null };
@@ -185,12 +242,11 @@ class WeChatClient extends EventEmitter {
       this.cookie = response.headers['set-cookie'].join('; ');
       log('成功获取登录Cookie');
 
-      // Parse XML response to get user info
       this.userInfo = this._parseLoginInfo(response.data);
       this.isLoggedIn = true;
-      console.log(`登录成功！用户昵称: ${this.userInfo.name}`);
+      log(`登录成功！用户昵称: ${this.userInfo.name}`);
     } catch (error) {
-      console.error('登录失败:', error);
+      warn('登录失败: ' + error.message);
       throw error;
     }
   }
@@ -206,7 +262,7 @@ class WeChatClient extends EventEmitter {
         pass_ticket: xmlData.match(/<pass_ticket>(.+?)<\/pass_ticket>/)[1]
       };
     } catch (error) {
-      console.error('Failed to parse login info:', error);
+      warn('解析登录信息失败: ' + error.message);
       throw new Error('Invalid login response format');
     }
   }
@@ -257,13 +313,14 @@ class WeChatClient extends EventEmitter {
       });
 
       if (response.data.BaseResponse.Ret !== 0) {
+        warn(`同步消息失败，错误代码: ${response.data.BaseResponse.Ret}`);
         throw new Error(`Sync failed with ret code ${response.data.BaseResponse.Ret}`);
       }
 
       this.syncKey = response.data.SyncKey;
       return response.data.AddMsgList || [];
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+      warn('获取消息失败: ' + error.message);
       return [];
     }
   }

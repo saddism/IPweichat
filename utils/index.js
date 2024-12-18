@@ -60,6 +60,12 @@ function timestamp() {
  */
 function writeToLog(message, type = 'info') {
     const logDir = path.join(__dirname, '../logs');
+
+    // Ensure logs directory exists with proper permissions
+    if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true, mode: 0o755 });
+    }
+
     const today = moment().format('YYYY-MM-DD');
     const logFile = path.join(logDir, `${today}.log`);
     const logMessage = `[${type.toUpperCase()}] ${timestamp()} ${message}\n`;
@@ -77,14 +83,20 @@ function writeToLog(message, type = 'info') {
  */
 function log(content) {
     const loginfo = `${timestamp()} ${content}`;
-    console.log(loginfo);
+    // Make console output more visible
+    console.log('\x1b[32m%s\x1b[0m', loginfo); // Green text
     writeToLog(content, 'info');
+    // Force flush stdout
+    process.stdout.write('');
 }
 
 function warn(content) {
     const warninfo = `${timestamp()} ${content}`;
-    console.warn(warninfo);
+    // Make warning more visible
+    console.warn('\x1b[33m%s\x1b[0m', warninfo); // Yellow text
     writeToLog(content, 'warn');
+    // Force flush stdout
+    process.stdout.write('');
 }
 
 module.exports = {

@@ -19,6 +19,7 @@ const schedule = require("../schedule");
 
 function logMessage(type, message, details = {}) {
   const timestamp = moment().format('YYYY-MM-DD HH:mm:ss');
+  const willReply = details.willReply;
   const logEntry = {
     type,
     timestamp,
@@ -26,13 +27,15 @@ function logMessage(type, message, details = {}) {
     ...details
   };
 
-  console.log(`[${type}] ${timestamp} ${message}`);
+  // Enhanced console output with reply indicator
+  const replyIndicator = willReply ? '🔄 将回复' : '⏭️ 不回复';
+  console.log(`[${type}] ${timestamp} ${replyIndicator} ${message}`);
   if (Object.keys(details).length > 0) {
     console.log('Details:', JSON.stringify(details, null, 2));
   }
 
   const logFile = path.join(__dirname, '../logs', `${moment().format('YYYY-MM-DD')}.log`);
-  fs.appendFileSync(logFile, `[${type}] ${timestamp} ${message}\n`);
+  fs.appendFileSync(logFile, `[${type}] ${timestamp} ${replyIndicator} ${message}\n`);
   if (Object.keys(details).length > 0) {
     fs.appendFileSync(logFile, `Details: ${JSON.stringify(details, null, 2)}\n`);
   }
@@ -247,7 +250,16 @@ async function onWebRoomMessage(msg) {
         const rewrittenContent = await claudeService.rewriteArticle(articleContent);
 
         logInfo('发送改写结果到群聊...');
-        await room.say(rewrittenContent);
+        if (rewrittenContent && Array.isArray(rewrittenContent)) {
+          const formattedContent = rewrittenContent
+            .filter(item => item.type === 'text')
+            .map(item => item.text)
+            .join('\n');
+          await room.say(formattedContent);
+        } else {
+          logWarn('改写结果格式异常', { content: rewrittenContent });
+          await room.say('抱歉，改写结果格式有误，请稍后重试。');
+        }
 
         rewrittenArticles.add(articleUrl);
         logInfo('文章改写完成并已记录');

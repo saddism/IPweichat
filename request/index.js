@@ -326,5 +326,6 @@ module.exports = {
   getSignature,
   getAnswer,
   upload,
-  translate
+  translate,
+  article: require('./article')
 };
